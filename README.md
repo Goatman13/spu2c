@@ -20,8 +20,8 @@ Examples
     fsmbi  r83, 0xF000       # r83[128b] = 0xFFFFFFFF:00000000:00000000:00000000
     shlqbyi  r66, r69, 3     # r66[128b] = (r69 << 24) & 0xFFFFFFFF:FFFFFFFF:FFFFFFFF:FF000000
     rotqby  r16, r17, r7     # r16[128b] = r17 << ((r7 & 0xF) * 8) | r17 >> (128 - ((r7 & 0xF) * 8))
-    rotqmbii  r10, r10, -1   # r10[128b] = (r10 >> 1) & 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    rotqmbyi  r12, r34, -0xC # r12[128b] = (r34 >> 96) & 0x000000000000000000000000FFFFFFFF
+    rotqmbii  r10, r10, -1   # r10[128b] = (r10 >> 1) & 0x7FFFFFFF:FFFFFFFF:FFFFFFFF:FFFFFFFF
+    rotqmbyi  r12, r34, -0xC # r12[128b] = (r34 >> 96) & 0x00000000:00000000:00000000:FFFFFFFF
     rotqmby  r11, r10, r12   # r11[128b] = r10 >> (( -(r12) & 0x1F) * 8)
     rotmi  r3, r12, -24      # r3[4x32b] = (r12 >> 24) & 0x000000FF
     shli  r43, r79, 0x1D     # r43[4x32b] = (r79 << 29) & 0xE0000000
@@ -29,6 +29,6 @@ Examples
     roti  r5, r10, 0xF       # r5[4x32b] = (r10 << 15) & 0xFFFF8000 | (r10 >> 17) & 0x00007FFF
     rot  r21, r41, r42       # r21[4x32b] = r41 << (r42 & 0x1F) | r41 >> (32 - (r42 & 0x1F))
     
-	ABCD = 4x32 bit slots of source register
-    rotqbyi  r79, r7, 0xD    # r79[128b] = r7 : DDDDDDAAAAAAAABBBBBBBBCCCCCCCCDD
-    rotqbyi  r54, r7, 8      # r54[128b] = r7 : CCCCCCCCDDDDDDDDAAAAAAAABBBBBBBB
+    ABCD = 4x32 bit slots of source register
+    rotqbyi  r79, r7, 0xD    # r79[128b] = r7 : DDDDDDAA:AAAAAABB:BBBBBBCC:CCCCCCDD
+    rotqbyi  r54, r7, 8      # r54[128b] = r7 : CCCCCCCC:DDDDDDDD:AAAAAAAA:BBBBBBBB
