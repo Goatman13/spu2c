@@ -127,7 +127,11 @@ def rotqmbii(opcode):
 	result &= MASK_ALLSET_128
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:032X}".format(rt,ra,shift,result)
+	a = (result >> 96) & MASK_ALLSET_32
+	b = (result >> 64) & MASK_ALLSET_32
+	c = (result >> 32) & MASK_ALLSET_32
+	d = result & MASK_ALLSET_32
+	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 	return cmt
 
 # Right shift 128 by byte
@@ -138,8 +142,11 @@ def rotqmbyi(opcode):
 	result &= MASK_ALLSET_128
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	# fixme: maybe split in 4 rows? 0s problem.
-	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:032X}".format(rt,ra,shift,result)
+	a = (result >> 96) & MASK_ALLSET_32
+	b = (result >> 64) & MASK_ALLSET_32
+	c = (result >> 32) & MASK_ALLSET_32
+	d = result & MASK_ALLSET_32
+	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 	return cmt
 
 # Right shift 4x32 by bit
@@ -183,8 +190,11 @@ def rotqbyi(opcode):
 	result &= MASK_ALLSET_128
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	# fixme: maybe split in 4 rows?
-	cmt    = "r{:d}[128b] = r{:d} : {:X}".format(rt,ra,result)
+	a = (result >> 96) & MASK_ALLSET_32
+	b = (result >> 64) & MASK_ALLSET_32
+	c = (result >> 32) & MASK_ALLSET_32
+	d = result & MASK_ALLSET_32
+	cmt    = "r{:d}[128b] = r{:d} : {:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,a,b,c,d)
 	return cmt
 
 # Left rotate 4x32 by bit
