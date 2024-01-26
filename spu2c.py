@@ -14,12 +14,63 @@ MASK_ALLSET_64  = 0xFFFFFFFFFFFFFFFF
 MASK_ALLSET_32  = 0xFFFFFFFF
 MASK_ALLSET_16  = 0xFFFF
 
+def get_reg(reg):
+
+	if reg == 0:
+		return "lr"
+	elif reg == 1:
+		return "sp"
+	else:
+		return "r{:d}".format(reg)
+
+def get_preferred_reg(reg):
+
+	if reg == 0:
+		return "lr[0]"
+	elif reg == 1:
+		return "sp[0]"
+	else:
+		return "r{:d}[0]".format(reg)
+
+def avgb(opcode):
+
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[16x8b] = (" + ra + " + " + rb + " + 1) >> 1 (sum before shift is 9 bit)"
+
+def absdb(opcode):
+
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[16x8b] = if (" + ra + " < " + rb + "): " + rb + " - " + ra + ", else: " + ra + " - " + rb
+
+def andc(opcode):
+
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " & ~" + rb
+
+
 def fsmbi(opcode):
-	rt  = opcode & 0x7F
-	i44 = (opcode >> 7)  & 0xF
-	i43 = (opcode >> 11) & 0xF
-	i42 = (opcode >> 15) & 0xF
-	i41 = (opcode >> 19) & 0xF
+
+	rt      = opcode & 0x7F
+	rt      = get_reg(rt)
+	i44     = (opcode >> 7)  & 0xF
+	i43     = (opcode >> 11) & 0xF
+	i42     = (opcode >> 15) & 0xF
+	i41     = (opcode >> 19) & 0xF
 	mask_44 = 0
 	mask_43 = 0
 	mask_42 = 0
@@ -48,8 +99,31 @@ def fsmbi(opcode):
 		if mask_temp != 0:
 			mask_41 = mask_41 | (0xFF << (i*8))
 		i += 1
-	cmt = "r{:d}[128b] = 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt, mask_41,mask_42,mask_43,mask_44)
-	return cmt
+	return rt + "[128b] = 0x{:08X}:{:08X}:{:08X}:{:08X}".format(mask_41,mask_42,mask_43,mask_44)
+
+def xsbh(opcode):
+
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[8x16b] = SignExtend16(" + ra + " & 0xFF)"
+
+def xshw(opcode):
+
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = SignExtend32(" + ra + " & 0xFFFF)"
+
+def xswd(opcode):
+
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[2x64b] = SignExtend64(" + ra + " & 0xFFFFFFFF)"
 
 ####################
 # Imm shift start: #
@@ -65,7 +139,7 @@ def shlqbii(opcode):
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	cmt    = "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
+	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 
 def shlqbyi(opcode):
 	shift  = (opcode >> 14) & 0x1F
@@ -78,24 +152,21 @@ def shlqbyi(opcode):
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	cmt    = "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
-	return cmt
+	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 
 def shli(opcode):
 	shift  = (opcode >> 14) & 0x3F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	a      = (MASK_ALLSET_32 << shift) & MASK_ALLSET_32
-	cmt    = "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X}".format(rt,ra,shift,a)
-	return cmt
+	return "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X}".format(rt,ra,shift,a)
 
 def shlhi(opcode):
 	shift  = (opcode >> 14) & 0x1F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	a      = (MASK_ALLSET_16 << shift) & MASK_ALLSET_16
-	cmt    = "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X}".format(rt,ra,shift,a)
-	return cmt
+	return "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X}".format(rt,ra,shift,a)
 
 #####################
 # Imm rotate start: #
@@ -107,8 +178,7 @@ def rotmai(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	#fixme: arithm
-	cmt    = "r{:d}[4x32b] = (r{:d} >> {:d})".format(rt,ra,shift)
-	return cmt
+	return "r{:d}[4x32b] = (r{:d} >> {:d})".format(rt,ra,shift)
 
 # Right arithm shift 8x16 by bit
 def rotmahi(opcode):
@@ -116,8 +186,7 @@ def rotmahi(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	#fixme: arithm
-	cmt    = "r{:d}[8x16b] = (r{:d} >> {:d})".format(rt,ra,shift)
-	return cmt
+	return "r{:d}[8x16b] = (r{:d} >> {:d})".format(rt,ra,shift)
 
 # Right shift 128 by bit
 def rotqmbii(opcode):
@@ -131,8 +200,7 @@ def rotqmbii(opcode):
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
-	return cmt
+	return "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 
 # Right shift 128 by byte
 def rotqmbyi(opcode):
@@ -146,8 +214,7 @@ def rotqmbyi(opcode):
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	cmt    = "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
-	return cmt
+	return "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
 
 # Right shift 4x32 by bit
 def rotmi(opcode):
@@ -155,8 +222,7 @@ def rotmi(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	a      = MASK_ALLSET_32 >> shift
-	cmt    = "r{:d}[4x32b] = (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,a)
-	return cmt
+	return "r{:d}[4x32b] = (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,a)
 
 # Right shift 8x16 by bit
 def rothmi(opcode):
@@ -164,8 +230,7 @@ def rothmi(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	a      = MASK_ALLSET_16 >> shift
-	cmt    = "r{:d}[8x16b] = (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,a)
-	return cmt
+	return "r{:d}[8x16b] = (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,a)
 
 # Left rotate 128 by bit
 def rotqbii(opcode):
@@ -178,8 +243,7 @@ def rotqbii(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	# fixme: maybe split in 4 rows? Ugly
-	cmt    = "r{:d}[128b] = (r{:d} << {:d}) & 0x{:032X} | (r{:d} >> {:d}) & 0x{:032X}".format(rt,ra,shift,result1,ra,(128-shift),result2)
-	return cmt
+	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:032X} | (r{:d} >> {:d}) & 0x{:032X}".format(rt,ra,shift,result1,ra,(128-shift),result2)
 
 # Left rotate 128 by byte
 def rotqbyi(opcode):
@@ -194,8 +258,7 @@ def rotqbyi(opcode):
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	cmt    = "r{:d}[128b] = r{:d} : {:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,a,b,c,d)
-	return cmt
+	return "r{:d}[128b] = r{:d} : {:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,a,b,c,d)
 
 # Left rotate 4x32 by bit
 def roti(opcode):
@@ -207,8 +270,7 @@ def roti(opcode):
 	result2 &= MASK_ALLSET_32
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X} | (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,result1,ra,(32-shift),result2)
-	return cmt
+	return "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X} | (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,result1,ra,(32-shift),result2)
 
 # Left rotate 8x16 by bit
 def rothi(opcode):
@@ -221,10 +283,8 @@ def rothi(opcode):
 	rt     = opcode & 0x7F
 	# we can have special case here:
 	if shift == 8:
-		cmt    = "r{:d}[8x16b] = byteswap16(r{:d})".format(rt,ra)
-		return cmt
-	cmt    = "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X} | (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,result1,ra,(16-shift),result2)
-	return cmt
+		return "r{:d}[8x16b] = byteswap16(r{:d})".format(rt,ra)
+	return "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X} | (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,result1,ra,(16-shift),result2)
 
 #########################
 # Non imm rotate start: #
@@ -236,8 +296,7 @@ def rotma(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	#fixme: arithm
-	cmt    = "r{:d}[4x32b] = (r{:d} >> -(r{:d}) & 0x3F))".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[4x32b] = r{:d} >> -(r{:d}) & 0x3F".format(rt,ra,rb)
 
 # Right arithm shift 8x16 by bit from rb
 def rotmah(opcode):
@@ -245,16 +304,14 @@ def rotmah(opcode):
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
 	#fixme: arithm
-	cmt    = "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
 
 # Right shift 128 by bit from rb
 def rotqmbi(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = r{:d} >> -(r{:d}) & 7".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[128b] = r{:d} >> -(r{:d}) & 7".format(rt,ra,rb)
 
 # Right shift 128 by byte from rb
 # fixme rotqmby
@@ -262,8 +319,7 @@ def rotqmbybi(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = (r{:d} >> (( -(r{:d}) & 0x1F) * 8))".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[128b] = r{:d} >> ( -(r{:d}) & 0x1F) * 8".format(rt,ra,rb)
 
 # Right shift 128 by byte from rb
 # fixme rotqmbybi
@@ -271,32 +327,28 @@ def rotqmby(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = r{:d} >> (( -(r{:d}) & 0x1F) * 8)".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[128b] = r{:d} >> ( -(r{:d}) & 0x1F) * 8".format(rt,ra,rb)
 
 # Right logical shift 4x32 by bit from rb
 def rotm(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[4x32b] = r{:d} >> -(r{:d}) & 0x3F".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[4x32b] = r{:d} >> -(r{:d}) & 0x3F".format(rt,ra,rb)
 
 # Right logical shift 8x16 by bit from rb
 def rothm(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
-	return cmt
+	return "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
 
 # Left rotate 128 by bit from rb
 def rotqbi(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = r{:d} << (r{:d} & 7) | r{:d} >> (128 - (r{:d} & 7))".format(rt,ra,rb,ra,rb)
-	return cmt
+	return "r{:d}[128b] = r{:d} << (r{:d} & 7) | r{:d} >> 128 - (r{:d} & 7)".format(rt,ra,rb,ra,rb)
 
 #rotqbybi
 
@@ -305,25 +357,67 @@ def rotqby(opcode):
 	rb  = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[128b] = r{:d} << ((r{:d} & 0xF) * 8) | r{:d} >> (128 - ((r{:d} & 0xF) * 8))".format(rt,ra,rb,ra,rb)
-	return cmt
+	return "r{:d}[128b] = r{:d} << (r{:d} & 0xF) * 8 | r{:d} >> 128 - ((r{:d} & 0xF) * 8)".format(rt,ra,rb,ra,rb)
 
 # Left rotate 4x32 by bit from rb
 def rot(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[4x32b] = r{:d} << (r{:d} & 0x1F) | r{:d} >> (32 - (r{:d} & 0x1F))".format(rt,ra,rb,ra,rb)
-	return cmt
+	return "r{:d}[4x32b] = r{:d} << (r{:d} & 0x1F) | r{:d} >> 32 - (r{:d} & 0x1F)".format(rt,ra,rb,ra,rb)
 
 # Left rotate 8x16 by bit from rb
 def roth(opcode):
 	rb     = (opcode >> 14) & 0x7F
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	cmt    = "r{:d}[8x16b] = r{:d} << (r{:d} & 0xF) | r{:d} >> (16 - (r{:d} & 0xF))".format(rt,ra,rb,ra,rb)
-	return cmt
+	return "r{:d}[8x16b] = r{:d} << (r{:d} & 0xF) | r{:d} >> 16 - (r{:d} & 0xF)".format(rt,ra,rb,ra,rb)
 
+###################
+# Branches start: #
+###################
+
+# Warning! Code for branches assume that SPU program is PS3 version.
+# This mean address is AND with 0x3FFFC.
+# This should be changed if you are working with hardware different than PS3.
+
+# Branch indirect (always)
+def bi(opcode):
+	ra     = (opcode >> 7) & 0x7F
+	ra     = get_preferred_reg(ra)
+	return "PC = " + ra + " & 0x3FFFC"
+
+# Branch indirect and link if external data
+def bisled(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "if ext_data: PC = " + ra + "& 0x3FFFC, ", + rt + " = 0x{:05X}".format(addr + 4)
+
+# Branch indirect and set link (always)
+def bisl(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "PC = " + ra + " & 0x3FFFC, " + rt + " = 0x{:05X}".format(addr + 4)
+
+# Branch indirect if zero
+def biz(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "if " + rt + " == 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
+
+# Branch indirect if not zero
+def binz(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "if " + rt + " != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
 # Todo:
 # imm:
@@ -338,6 +432,12 @@ def SPUAsm2C(addr):
 	opcode_name = print_insn_mnem(addr)
 	if opcode_name == "fsmbi":
 		return fsmbi(opcode)
+	elif opcode_name == "avgb":
+		return avgb(opcode)
+	elif opcode_name == "absdb":
+		return absdb(opcode)
+	elif opcode_name == "andc":
+		return andc(opcode)
 	elif opcode_name == "shlqbyi":
 		return shlqbyi(opcode)
 	elif opcode_name == "shlqbii":
@@ -388,6 +488,22 @@ def SPUAsm2C(addr):
 		return rot(opcode)
 	elif opcode_name == "roth":
 		return roth(opcode)
+	elif opcode_name == "bi":
+		return bi(opcode)
+	elif opcode_name == "bisled":
+		return bisled(addr, opcode)
+	elif opcode_name == "bisl":
+		return bisl(addr, opcode)
+	elif opcode_name == "biz":
+		return biz(addr, opcode)
+	elif opcode_name == "binz":
+		return binz(addr, opcode)
+	elif opcode_name == "xsbh":
+		return xsbh(opcode)
+	elif opcode_name == "xshw":
+		return xshw(opcode)
+	elif opcode_name == "xswd":
+		return xswd( opcode)
 
 	return 0
 
