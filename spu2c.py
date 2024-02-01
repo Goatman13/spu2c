@@ -42,6 +42,16 @@ def get_preferred_reg(reg):
 	else:
 		return "r{:d}[0]".format(reg)
 
+def sign_extend_imm10(_16, value):
+
+	if value & 0x200 == 0x200:
+		value = (0xFFFFFE00 | value & 0x1FF)
+	else:
+		value &= 0x1FF
+	if _16 == 1:
+		value &= 0xFFFF
+	return value
+
 def avgb(opcode):
 
 	rb     = (opcode >> 14) & 0x7F
@@ -72,6 +82,120 @@ def andc(opcode):
 	rt     = get_reg(rt)
 	return rt +"[4x32b] = " + ra + " & ~" + rb
 
+def andbi(opcode):
+
+	imm    = (opcode >> 14) & 0xFF
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[16x8b] = " + ra + " & 0x{:X}".format(imm)
+
+def andhi(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(1, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[8x16b] = " + ra + " & 0x{:X}".format(imm)
+
+def andi(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(0, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " & 0x{:X}".format(imm)
+
+def orc(opcode):
+
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " | ~" + rb
+
+def orbi(opcode):
+
+	imm    = (opcode >> 14) & 0xFF
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[16x8b] = " + ra + " | 0x{:X}".format(imm)
+
+def orhi(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(1, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[8x16b] = " + ra + " | 0x{:X}".format(imm)
+
+def ori(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(0, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " | 0x{:X}".format(imm)
+
+def orx(opcode):
+
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	#ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[32b][0] = " + get_reg_with_field(ra,0) + " | " + get_reg_with_field(ra,1) + " | " + get_reg_with_field(ra,2) + " | " + get_reg_with_field(ra,3) + " (lower 96 bits of " + rt + " = 0)"
+
+def xorbi(opcode):
+
+	imm    = (opcode >> 14) & 0xFF
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[16x8b] = " + ra + " ^ 0x{:X}".format(imm)
+
+def xorhi(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(1, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[8x16b] = " + ra + " ^ 0x{:X}".format(imm)
+
+def xori(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(0, imm)
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " ^ 0x{:X}".format(imm)
+
+def eqv(opcode):
+
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rt     = get_reg(rt)
+	return rt +"[4x32b] = " + ra + " ^ ~" + rb + " (If the bit in" + ra + " and " + rb + " are the same, the result bit is 1 else 0)"
 
 def fsmbi(opcode):
 
@@ -495,6 +619,30 @@ def SPUAsm2C(addr):
 		return absdb(opcode)
 	elif opcode_name == "andc":
 		return andc(opcode)
+	elif opcode_name == "andbi":
+		return andbi(opcode)
+	elif opcode_name == "andhi":
+		return andhi(opcode)
+	elif opcode_name == "andi":
+		return andi(opcode)
+	elif opcode_name == "orc":
+		return orc(opcode)
+	elif opcode_name == "orbi":
+		return orbi(opcode)
+	elif opcode_name == "orhi":
+		return orhi(opcode)
+	elif opcode_name == "ori":
+		return ori(opcode)
+	elif opcode_name == "orx":
+		return orx(opcode)
+	elif opcode_name == "xorbi":
+		return xorbi(opcode)
+	elif opcode_name == "xorhi":
+		return xorhi(opcode)
+	elif opcode_name == "xori":
+		return xori(opcode)
+	elif opcode_name == "eqv":
+		return eqv(opcode)
 	elif opcode_name == "shlqbyi":
 		return shlqbyi(opcode)
 	elif opcode_name == "shlqbii":
