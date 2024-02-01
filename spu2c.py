@@ -23,6 +23,16 @@ def get_reg(reg):
 	else:
 		return "r{:d}".format(reg)
 
+def get_reg_with_field(reg, field):
+
+	if reg == 0:
+		reg = "lr"
+	elif reg == 1:
+		reg = "sp"
+	else:
+		reg = "r{:d}".format(reg)
+	return reg + "[{:d}]".format(field)
+
 def get_preferred_reg(reg):
 
 	if reg == 0:
@@ -40,7 +50,7 @@ def avgb(opcode):
 	rb     = get_reg(rb)
 	ra     = get_reg(ra)
 	rt     = get_reg(rt)
-	return rt +"[16x8b] = (" + ra + " + " + rb + " + 1) >> 1 (sum before shift is 9 bit)"
+	return rt +"[16x8b] = (" + ra + " + " + rb + " + 1) >> 1 (sum before shift is 9 bits value)"
 
 def absdb(opcode):
 
@@ -419,11 +429,58 @@ def binz(addr, opcode):
 	rt     = get_preferred_reg(rt)
 	return "if " + rt + " != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
+# Branch indirect if zero halfword
+def bihz(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "if (" + rt + "[32b] & 0xFFFF) == 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
+
+# Branch indirect if not zero halfword
+def bihnz(addr, opcode):
+	ra     = (opcode >> 7) & 0x7F
+	rt     = opcode & 0x7F
+	ra     = get_preferred_reg(ra)
+	rt     = get_preferred_reg(rt)
+	return "if (" + rt + "[32b] & 0xFFFF) != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
+
+def shufb(opcode):
+
+	rt     = (opcode >> 21) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rc     = opcode & 0x7F
+	rt     = get_reg(rt)
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rc     = get_reg(rc)
+	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x & 0x80 == 0)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
+	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x & 0x80 == 0)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
+
+	answer = ask_yn(0, cmt2)
+	if answer < 1:
+		return 1
+	return cmt
+
+def selb(opcode):
+
+	rt     = (opcode >> 21) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rc     = opcode & 0x7F
+	rt     = get_reg(rt)
+	rb     = get_reg(rb)
+	ra     = get_reg(ra)
+	rc     = get_reg(rc)
+	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
+
+
 # Todo:
 # imm:
 # mpyi, mpyui, sfi, sfhi, ai (signed i10), ahi (signed i10), iohl, ilhu
 # non imm:
-# shifts, compares, orx, xswd. xshw, xsbh, rotqbybi
+# shifts, compares, orx, rotqbybi, add which field is responsible for for shoft/rot count!
 # else: simplify x by 0
 
 def SPUAsm2C(addr):
@@ -498,12 +555,20 @@ def SPUAsm2C(addr):
 		return biz(addr, opcode)
 	elif opcode_name == "binz":
 		return binz(addr, opcode)
+	elif opcode_name == "bihz":
+		return bihz(addr, opcode)
+	elif opcode_name == "bihnz":
+		return bihnz(addr, opcode)
 	elif opcode_name == "xsbh":
 		return xsbh(opcode)
 	elif opcode_name == "xshw":
 		return xshw(opcode)
 	elif opcode_name == "xswd":
-		return xswd( opcode)
+		return xswd(opcode)
+	elif opcode_name == "shufb":
+		return shufb(opcode)
+	elif opcode_name == "selb":
+		return selb(opcode)
 
 	return 0
 
