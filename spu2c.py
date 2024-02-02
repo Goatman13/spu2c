@@ -35,12 +35,7 @@ def get_reg_with_field(reg, field):
 
 def get_preferred_reg(reg):
 
-	if reg == 0:
-		return "lr[0]"
-	elif reg == 1:
-		return "sp[0]"
-	else:
-		return "r{:d}[0]".format(reg)
+	return get_reg_with_field(reg, 0)
 
 def sign_extend_imm10(_16, value):
 
@@ -51,6 +46,35 @@ def sign_extend_imm10(_16, value):
 	if _16 == 1:
 		value &= 0xFFFF
 	return value
+
+def sign_extend_imm16(value):
+
+	if value & 0x8000 == 0x8000:
+		return 0xFFFF0000 | value & 0xFFFF
+	else:
+		return value & 0xFFFF
+
+def imm10_to_signed_string(value):
+
+	sign = ""
+	imm = value & 0x3FF
+	if (imm > 0x1FF):
+		imm = ~imm
+		imm &= 0x1FF
+		imm += 1
+		sign = "-"
+	return sign + "0x{:X}".format(imm)
+
+def imm16_to_signed_string(value):
+
+	sign = ""
+	imm = value & 0xFFFF
+	if (imm > 0x7FFF):
+		imm = ~imm
+		imm &= 0x7FFF
+		imm += 1
+		sign = "-"
+	return sign + "0x{:X}".format(imm)
 
 def avgb(opcode):
 
@@ -154,7 +178,6 @@ def orx(opcode):
 
 	ra     = (opcode >> 7) & 0x7F
 	rt     = opcode & 0x7F
-	#ra     = get_reg(ra)
 	rt     = get_reg(rt)
 	return rt +"[32b][0] = " + get_reg_with_field(ra,0) + " | " + get_reg_with_field(ra,1) + " | " + get_reg_with_field(ra,2) + " | " + get_reg_with_field(ra,3) + " (lower 96 bits of " + rt + " = 0)"
 
@@ -258,6 +281,164 @@ def xswd(opcode):
 	ra     = get_reg(ra)
 	rt     = get_reg(rt)
 	return rt +"[2x64b] = SignExtend64(" + ra + " & 0xFFFFFFFF)"
+
+def ilh(opcode):
+
+	rt     = opcode & 0x7F
+	rt     = get_reg(rt)
+	imm    = (opcode >> 7) & 0xFFFF
+	return rt +"[8x16b] = 0x{:X}".format(imm)
+
+def ilhu(opcode):
+
+	rt     = opcode & 0x7F
+	rt     = get_reg(rt)
+	imm    = (opcode >> 7) & 0xFFFF
+	return rt +"[4x32b] = 0x{:04X}0000".format(imm)
+
+def il(opcode):
+
+	rt     = opcode & 0x7F
+	rt     = get_reg(rt)
+	val    = (opcode >> 7) & 0xFFFF
+	imm    = sign_extend_imm16(val)
+	if val > 0x7FFF:
+		imms   = imm16_to_signed_string(val)
+		return rt +"[4x32b] = 0x{:X}".format(imm) + " (" + imms + ")"
+	return rt +"[4x32b] = 0x{:X}".format(imm)
+
+def ila(opcode):
+
+	rt     = opcode & 0x7F
+	rt     = get_reg(rt)
+	imm    = (opcode >> 7) & 0x3FFFF
+	return rt +"[4x32b] = 0x{:X}".format(imm)
+
+def iohl(opcode):
+
+	rt     = opcode & 0x7F
+	rt     = get_reg(rt)
+	imm    = (opcode >> 7) & 0xFFFF
+	return rt +"[4x32b] = " + rt + " | 0x{:X}".format(imm)
+
+def ah(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[8x16b] = " + rb + " + " + ra
+
+def a(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[4x32b] = " + rb + " + " + ra
+
+def addx(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[4x32b] = " + ra + " + " + rb + " + (" + rt + " & 1)"
+
+def sfh(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[8x16b] = " + rb + " - " + ra
+
+def sf(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[4x32b] = " + rb + " - " + ra
+
+def sfx(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return rt +"[4x32b] = (" + ra + " - " + rb + ") - ((" + rt + " & 1) ^ 1)"
+
+def ahi(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = imm10_to_signed_string(imm)
+	return rt +"[8x16b] = " + ra + " + " + imm
+
+def ai(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = imm10_to_signed_string(imm)
+	return rt +"[4x32b] = " + ra + " + " + imm
+
+def sfhi(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    =  imm10_to_signed_string(imm)
+	return rt +"[8x16b] = " + imm + " - " + ra
+
+def sfi(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    =  imm10_to_signed_string(imm)
+	return rt +"[4x32b] = " + imm + " - " + ra
+
+def bg(opcode):
+
+	rt     = opcode & 0x7F
+	ra     = (opcode >> 7) & 0x7F
+	rb     = (opcode >> 14) & 0x7F
+	rt     = get_reg(rt)
+	ra     = get_reg(ra)
+	rb     = get_reg(rb)
+	return "[4x32b] if (u32)" + ra + " > (u32)" + rb + ": " + rt + " = 0, else " + rt + " = 0x00000001"
+
+#todo
+#def bgx(opcode):
+#
+#	rt     = opcode & 0x7F
+#	ra     = (opcode >> 7) & 0x7F
+#	rb     = (opcode >> 14) & 0x7F
+#	return "[4x32b] if (u32)" + ra + " > (u32)" + rb + ": " + rt + " = 0, else " + rt + " = 0x00000001"
+
 
 ####################
 # Imm shift start: #
@@ -579,8 +760,8 @@ def shufb(opcode):
 	rb     = get_reg(rb)
 	ra     = get_reg(ra)
 	rc     = get_reg(rc)
-	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x & 0x80 == 0)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
-	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x & 0x80 == 0)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
+	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
+	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
 
 	answer = ask_yn(0, cmt2)
 	if answer < 1:
@@ -602,9 +783,9 @@ def selb(opcode):
 
 # Todo:
 # imm:
-# mpyi, mpyui, sfi, sfhi, ai (signed i10), ahi (signed i10), iohl, ilhu
+# mpyi, mpyui
 # non imm:
-# shifts, compares, orx, rotqbybi, add which field is responsible for for shoft/rot count!
+# shifts, compares, rotqbybi, add which field is responsible for for shoft/rot count!
 # else: simplify x by 0
 
 def SPUAsm2C(addr):
@@ -643,6 +824,38 @@ def SPUAsm2C(addr):
 		return xori(opcode)
 	elif opcode_name == "eqv":
 		return eqv(opcode)
+	elif opcode_name == "ilh":
+		return ilh(opcode)
+	elif opcode_name == "ilhu":
+		return ilhu(opcode)
+	elif opcode_name == "il":
+		return il(opcode)
+	elif opcode_name == "ila":
+		return ila(opcode)
+	elif opcode_name == "iohl":
+		return iohl(opcode)
+	elif opcode_name == "ah":
+		return ah(opcode)
+	elif opcode_name == "a":
+		return a(opcode)
+	elif opcode_name == "addx":
+		return addx(opcode)
+	elif opcode_name == "sfh":
+		return sfh(opcode)
+	elif opcode_name == "sf":
+		return sf(opcode)
+	elif opcode_name == "sfx":
+		return sfx(opcode)
+	elif opcode_name == "ahi":
+		return ahi(opcode)
+	elif opcode_name == "ai":
+		return ai(opcode)
+	elif opcode_name == "sfhi":
+		return sfhi(opcode)
+	elif opcode_name == "sfi":
+		return sfi(opcode)
+	elif opcode_name == "bg":
+		return bg(opcode)
 	elif opcode_name == "shlqbyi":
 		return shlqbyi(opcode)
 	elif opcode_name == "shlqbii":
