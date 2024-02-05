@@ -40,7 +40,6 @@ def get_preferred_reg(reg):
 def get_channel(ca):
 
 	if ca < 31:
-		
 		ca_tbl = ["event_status", "event_mask", "event_ack", "signal_notify1", "signal_notify2", "ch5", "ch6", "decrementer", "decrementer", "multisource_sync_req",
 		"ch10", "event_mask", "tag_mask", "machine_status", "srr0", "srr0", "ls_address", "mfc_eah", "mfc_eal", "mfc_size",
 		"tag_id", "mfc_cmd", "tag_mask", "tag_update", "tag_status", "list_stall_status", "list_stall_ack", "atomic_status", "out_mailbox", "in_mailbox",
@@ -683,27 +682,9 @@ def bihnz(addr, opcode):
 	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if (" + rt + "[32b] & 0xFFFF) != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
-def shufb(opcode):
-
-	rt     = get_reg((opcode >> 21) & 0x7F)
-	rb     = get_reg((opcode >> 14) & 0x7F)
-	ra     = get_reg((opcode >> 7) & 0x7F)
-	rc     = get_reg(opcode & 0x7F)
-	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
-	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
-
-	answer = ask_yn(0, cmt2)
-	if answer < 1:
-		return 1
-	return cmt
-
-def selb(opcode):
-
-	rt     = get_reg((opcode >> 21) & 0x7F)
-	rb     = get_reg((opcode >> 14) & 0x7F)
-	ra     = get_reg((opcode >> 7) & 0x7F)
-	rc     = get_reg(opcode & 0x7F)
-	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
+###################
+# Compares start: #
+###################
 
 def ceqb(opcode):
 
@@ -768,6 +749,86 @@ def clgt(opcode):
 	rt     = get_reg(opcode & 0x7F)
 	return "[4x32b][unsigned] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
+def ceqbi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	return "[16x8b] if " + ra + " == 0x{:X}: ".format(imm) + rt + " = 0xFF, else 0x00"
+
+def ceqhi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	imm    = sign_extend_imm10(1, imm)
+	return "[8x16b] if " + ra + " == 0x{:X}: ".format(imm) + rt + " = 0xFFFF, else 0x0000"
+
+def ceqi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	imm    = sign_extend_imm10(0, imm)
+	return "[4x32b] if " + ra + " == 0x{:X}: ".format(imm) + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def cgtbi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	sign   = ""
+	if (imm > 0x7F):
+		imm = ~imm
+		imm &= 0x7F
+		imm += 1
+		sign = "-"
+	imm   = sign + "0x{:X}".format(imm)
+	return "[16x8b][signed] if " + ra + " > " + imm + ": " + rt + " = 0xFF, else 0x00"
+
+def cgthi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = imm10_to_signed_string(imm)
+	return "[8x16b][signed] if " + ra + " > " + imm + ": " + rt + " = 0xFFFF, else 0x0000"
+
+def cgti(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = imm10_to_signed_string(imm)
+	return "[4x32b][signed] if " + ra + " > " + imm + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def clgtbi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	return "[16x8b][unsigned] if " + ra + " > 0x{:X}: ".format(imm) + rt + " = 0xFF, else 0x00"
+
+def clgthi(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	imm    = sign_extend_imm10(1, imm)
+	return "[8x16b][unsigned] if " + ra + " > 0x{:X}: ".format(imm) + rt + " = 0xFFFF, else 0x0000"
+
+def clgti(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	imm    = (opcode >> 14) & 0xFF
+	imm    = sign_extend_imm10(0, imm)
+	return "[4x32b][unsigned] if " + ra + " > 0x{:X}: ".format(imm) + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+######################
+# Channel r/w start: #
+######################
+
 def wrch(opcode):
 
 	ca     = get_channel((opcode >> 7) & 0x7F)
@@ -789,6 +850,33 @@ def rchcnt(opcode):
 	cc     = (opcode >> 7) & 0x7F
 	rt     = get_preferred_reg(opcode & 0x7F)
 	return rt + " = chnnel count of " + ca + " (ch{:d})".format(cc)
+
+###############
+# Misc start: #
+###############
+
+def shufb(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
+	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
+
+	answer = ask_yn(0, cmt2)
+	if answer < 1:
+		return 1
+	return cmt
+
+def selb(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
+
 
 # Todo:
 # imm:
@@ -882,6 +970,15 @@ def SPUAsm2C(addr):
 	elif opcode_name == "clgtb": return clgtb(opcode)
 	elif opcode_name == "clgth": return clgth(opcode)
 	elif opcode_name == "clgt": return clgt(opcode)
+	elif opcode_name == "ceqbi": return ceqbi(opcode)
+	elif opcode_name == "ceqhi": return ceqhi(opcode)
+	elif opcode_name == "ceqi": return ceqi(opcode)
+	elif opcode_name == "cgtbi": return cgtbi(opcode)
+	elif opcode_name == "cgthi": return cgthi(opcode)
+	elif opcode_name == "cgti": return cgti(opcode)
+	elif opcode_name == "clgtbi": return clgtbi(opcode)
+	elif opcode_name == "clgthi": return clgthi(opcode)
+	elif opcode_name == "clgti": return clgti(opcode)
 
 	return 0
 
