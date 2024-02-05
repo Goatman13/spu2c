@@ -358,7 +358,7 @@ def sfhi(opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
-	imm    =  imm10_to_signed_string(imm)
+	imm    = imm10_to_signed_string(imm)
 	return rt +"[8x16b] = " + imm + " - " + ra
 
 def sfi(opcode):
@@ -366,7 +366,7 @@ def sfi(opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
-	imm    =  imm10_to_signed_string(imm)
+	imm    = imm10_to_signed_string(imm)
 	return rt +"[4x32b] = " + imm + " - " + ra
 
 def bg(opcode):
@@ -383,6 +383,90 @@ def bg(opcode):
 #	ra     = (opcode >> 7) & 0x7F
 #	rb     = (opcode >> 14) & 0x7F
 #	return "[4x32b] if (u32)" + ra + " > (u32)" + rb + ": " + rt + " = 0, else " + rt + " = 0x00000001"
+
+def mpy(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (s16)(" + ra + " & 0xFFFF) * (s16)(" + rb + " & 0xFFFF)"
+
+def mpyu(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (" + ra + " & 0xFFFF) * (" + rb + " & 0xFFFF)"
+
+# signed rc? 
+def mpya(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = ((s16)(" + ra + " & 0xFFFF) * (s16)(" + rb + " & 0xFFFF)) + " + rc
+
+# signed? 
+def mpyh(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = ((((" + ra + " >> 16) & 0xFFFF) * (" + rb + " & 0xFFFF)) << 16) & 0xFFFF0000"
+
+# signed? 
+def mpys(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = sign_extend32(((" + ra + " & 0xFFFF) * (" + rb + " & 0xFFFF)) >> 16)"
+
+def mpyhh(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (s16)((" + ra + " >> 16) & 0xFFFF) * (s16)((" + rb + " >> 16) & 0xFFFF)"
+
+# signed rt? 
+def mpyhha(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (s16)((" + ra + " >> 16) & 0xFFFF) * (s16)((" + rb + " >> 16) & 0xFFFF) + " + rt
+
+def mpyhhu(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = ((" + ra + " >> 16) & 0xFFFF) * ((" + rb + " >> 16) & 0xFFFF)"
+
+def mpyhhau(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = ((" + ra + " >> 16) & 0xFFFF) * ((" + rb + " >> 16) & 0xFFFF) + " + rt
+
+def mpyi(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = imm10_to_signed_string(imm)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (s16)(" + ra + " & 0xFFFF) * " + imm
+
+def mpyui(opcode):
+
+	imm    = (opcode >> 14) & 0x3FF
+	imm    = sign_extend_imm10(1, imm)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (" + ra + " & 0xFFFF) * 0x{:X}".format(imm)
 
 
 ####################
@@ -568,23 +652,22 @@ def rotmah(opcode):
 
 # Right shift 128 by bit from rb
 def rotqmbi(opcode):
-	rb     = get_reg((opcode >> 14) & 0x7F)
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	return rt + "[128b] = " + ra + " >> -(" + rb + ") & 7"
 
 # Right shift 128 by byte from rb
-# fixme rotqmby
+# fixme wtf
 def rotqmbybi(opcode):
-	rb     = get_reg((opcode >> 14) & 0x7F)
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return rt + "[128b] = " + ra + " >> ( -(" + rb + ") & 0x1F) * 8"
+	return rt + "[128b] = " + ra + " >> ( -(" + rb + " >> 3) & 0x1F) * 8"
 
 # Right shift 128 by byte from rb
-# fixme rotqmbybi
 def rotqmby(opcode):
-	rb     = get_reg((opcode >> 14) & 0x7F)
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	return rt + "[128b] = " + ra + " >> ( -(" + rb + ") & 0x1F) * 8"
@@ -605,16 +688,22 @@ def rothm(opcode):
 
 # Left rotate 128 by bit from rb
 def rotqbi(opcode):
-	rb     = get_reg((opcode >> 14) & 0x7F)
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	return rt + "[128b] = " + ra + " << (" + rb + " & 7) | " + ra + " >> 128 - (" + rb + " & 7)"
 
-#rotqbybi
+#fixme wtf
+def rotqbybi(opcode):
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " << ((" + rb + " >> 3) & 0xF) * 8 | " + ra + " >> 128 - (((" + rb + " >> 3) & 0xF) * 8)"
+
 
 # Left rotate 128 by byte from rb
 def rotqby(opcode):
-	rb     = get_reg((opcode >> 14) & 0x7F)
+	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	return rt + "[128b] = " + ra + " << (" + rb + " & 0xF) * 8 | " + ra + " >> 128 - ((" + rb + " & 0xF) * 8)"
@@ -879,10 +968,7 @@ def selb(opcode):
 
 
 # Todo:
-# imm:
-# mpyi, mpyui
-# non imm:
-# compares, rotqbybi, add which field is responsible for for shift/rot count!
+# non imm shifts
 # else: simplify x by 0
 
 def SPUAsm2C(addr):
@@ -921,6 +1007,17 @@ def SPUAsm2C(addr):
 	elif opcode_name == "sfhi": return sfhi(opcode)
 	elif opcode_name == "sfi": return sfi(opcode)
 	elif opcode_name == "bg": return bg(opcode)
+	elif opcode_name == "mpy": return mpy(opcode)
+	elif opcode_name == "mpyu": return mpyu(opcode)
+	elif opcode_name == "mpya": return mpya(opcode)
+	elif opcode_name == "mpyh": return mpyh(opcode)
+	elif opcode_name == "mpys": return mpys(opcode)
+	elif opcode_name == "mpyhh": return mpyhh(opcode)
+	elif opcode_name == "mpyhha": return mpyhha(opcode)
+	elif opcode_name == "mpyhhu": return mpyhhu(opcode)
+	elif opcode_name == "mpyhhau": return mpyhhau(opcode)
+	elif opcode_name == "mpyi": return mpyi(opcode)
+	elif opcode_name == "mpyui": return mpyui(opcode)
 	elif opcode_name == "shlqbyi": return shlqbyi(opcode)
 	elif opcode_name == "shlqbii": return shlqbii(opcode)
 	elif opcode_name == "shli": return shli(opcode)
