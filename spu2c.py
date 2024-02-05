@@ -37,6 +37,27 @@ def get_preferred_reg(reg):
 
 	return get_reg_with_field(reg, 0)
 
+def get_channel(ca):
+
+	if ca < 31:
+		
+		ca_tbl = ["event_status", "event_mask", "event_ack", "signal_notify1", "signal_notify2", "ch5", "ch6", "decrementer", "decrementer", "multisource_sync_req",
+		"ch10", "event_mask", "tag_mask", "machine_status", "srr0", "srr0", "ls_address", "mfc_eah", "mfc_eal", "mfc_size",
+		"tag_id", "mfc_cmd", "tag_mask", "tag_update", "tag_status", "list_stall_status", "list_stall_ack", "atomic_status", "out_mailbox", "in_mailbox",
+		"intr_out_mailbox"]
+		return ca_tbl[ca]
+	elif ca == 69:
+		ca = "set_bkmk_tag"
+	elif ca == 70:
+		ca = "perf_monitor_start_event"
+	elif ca == 71:
+		ca = "perf_monitor_stop_event"
+	elif ca == 74:
+		ca = "rng"
+	else:
+		ca = "ch{:d}".format(ca)
+	return ca
+	
 def sign_extend_imm10(_16, value):
 
 	if value & 0x200 == 0x200:
@@ -78,152 +99,117 @@ def imm16_to_signed_string(value):
 
 def avgb(opcode):
 
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[16x8b] = (" + ra + " + " + rb + " + 1) >> 1 (sum before shift is 9 bits value)"
 
 def absdb(opcode):
 
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[16x8b] = if (" + ra + " < " + rb + "): " + rb + " - " + ra + ", else: " + ra + " - " + rb
 
 def andc(opcode):
 
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " & ~" + rb
 
 def andbi(opcode):
 
 	imm    = (opcode >> 14) & 0xFF
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[16x8b] = " + ra + " & 0x{:X}".format(imm)
 
 def andhi(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(1, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = " + ra + " & 0x{:X}".format(imm)
 
 def andi(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(0, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " & 0x{:X}".format(imm)
 
 def orc(opcode):
 
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " | ~" + rb
 
 def orbi(opcode):
 
 	imm    = (opcode >> 14) & 0xFF
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[16x8b] = " + ra + " | 0x{:X}".format(imm)
 
 def orhi(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(1, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = " + ra + " | 0x{:X}".format(imm)
 
 def ori(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(0, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " | 0x{:X}".format(imm)
 
 def orx(opcode):
 
 	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[32b][0] = " + get_reg_with_field(ra,0) + " | " + get_reg_with_field(ra,1) + " | " + get_reg_with_field(ra,2) + " | " + get_reg_with_field(ra,3) + " (lower 96 bits of " + rt + " = 0)"
 
 def xorbi(opcode):
 
 	imm    = (opcode >> 14) & 0xFF
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[16x8b] = " + ra + " ^ 0x{:X}".format(imm)
 
 def xorhi(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(1, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = " + ra + " ^ 0x{:X}".format(imm)
 
 def xori(opcode):
 
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = sign_extend_imm10(0, imm)
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " ^ 0x{:X}".format(imm)
 
 def eqv(opcode):
 
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " ^ ~" + rb + " (If the bit in" + ra + " and " + rb + " are the same, the result bit is 1 else 0)"
 
 def fsmbi(opcode):
 
-	rt      = opcode & 0x7F
-	rt      = get_reg(rt)
+	rt      = get_reg(opcode & 0x7F)
 	i44     = (opcode >> 7)  & 0xF
 	i43     = (opcode >> 11) & 0xF
 	i42     = (opcode >> 15) & 0xF
@@ -260,46 +246,37 @@ def fsmbi(opcode):
 
 def xsbh(opcode):
 
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = SignExtend16(" + ra + " & 0xFF)"
 
 def xshw(opcode):
 
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = SignExtend32(" + ra + " & 0xFFFF)"
 
 def xswd(opcode):
 
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_reg(ra)
-	rt     = get_reg(rt)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[2x64b] = SignExtend64(" + ra + " & 0xFFFFFFFF)"
 
 def ilh(opcode):
 
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 7) & 0xFFFF
 	return rt +"[8x16b] = 0x{:X}".format(imm)
 
 def ilhu(opcode):
 
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 7) & 0xFFFF
 	return rt +"[4x32b] = 0x{:04X}0000".format(imm)
 
 def il(opcode):
 
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	val    = (opcode >> 7) & 0xFFFF
 	imm    = sign_extend_imm16(val)
 	if val > 0x7FFF:
@@ -309,126 +286,95 @@ def il(opcode):
 
 def ila(opcode):
 
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 7) & 0x3FFFF
 	return rt +"[4x32b] = 0x{:X}".format(imm)
 
 def iohl(opcode):
 
-	rt     = opcode & 0x7F
-	rt     = get_reg(rt)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 7) & 0xFFFF
 	return rt +"[4x32b] = " + rt + " | 0x{:X}".format(imm)
 
 def ah(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = " + rb + " + " + ra
 
 def a(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + rb + " + " + ra
 
 def addx(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + ra + " + " + rb + " + (" + rt + " & 1)"
 
 def sfh(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[8x16b] = " + rb + " - " + ra
 
 def sf(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = " + rb + " - " + ra
 
 def sfx(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return rt +"[4x32b] = (" + ra + " - " + rb + ") - ((" + rt + " & 1) ^ 1)"
 
 def ahi(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = imm10_to_signed_string(imm)
 	return rt +"[8x16b] = " + ra + " + " + imm
 
 def ai(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
 	imm    = imm10_to_signed_string(imm)
 	return rt +"[4x32b] = " + ra + " + " + imm
 
 def sfhi(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
 	imm    =  imm10_to_signed_string(imm)
 	return rt +"[8x16b] = " + imm + " - " + ra
 
 def sfi(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	imm    = (opcode >> 14) & 0x3FF
 	imm    =  imm10_to_signed_string(imm)
 	return rt +"[4x32b] = " + imm + " - " + ra
 
 def bg(opcode):
 
-	rt     = opcode & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	rt     = get_reg(rt)
-	ra     = get_reg(ra)
-	rb     = get_reg(rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	return "[4x32b] if (u32)" + ra + " > (u32)" + rb + ": " + rt + " = 0, else " + rt + " = 0x00000001"
 
 #todo
@@ -448,40 +394,40 @@ def shlqbii(opcode):
 	shift  = (opcode >> 14) & 7
 	result = MASK_ALLSET_128 << shift
 	result &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	a = (result >> 96) & MASK_ALLSET_32
-	b = (result >> 64) & MASK_ALLSET_32
-	c = (result >> 32) & MASK_ALLSET_32
-	d = result & MASK_ALLSET_32
-	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	a      = (result >> 96) & MASK_ALLSET_32
+	b      = (result >> 64) & MASK_ALLSET_32
+	c      = (result >> 32) & MASK_ALLSET_32
+	d      = result & MASK_ALLSET_32
+	return rt + "[128b] = (" + ra + " << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
 
 def shlqbyi(opcode):
 	shift  = (opcode >> 14) & 0x1F
 	shift  *= 8
 	result = MASK_ALLSET_128 << shift
 	result &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	a = (result >> 96) & MASK_ALLSET_32
-	b = (result >> 64) & MASK_ALLSET_32
-	c = (result >> 32) & MASK_ALLSET_32
-	d = result & MASK_ALLSET_32
-	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	a      = (result >> 96) & MASK_ALLSET_32
+	b      = (result >> 64) & MASK_ALLSET_32
+	c      = (result >> 32) & MASK_ALLSET_32
+	d      = result & MASK_ALLSET_32
+	return rt + "[128b] = (" + ra + " << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
 
 def shli(opcode):
 	shift  = (opcode >> 14) & 0x3F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a      = (MASK_ALLSET_32 << shift) & MASK_ALLSET_32
-	return "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X}".format(rt,ra,shift,a)
+	return rt + "[4x32b] = (" + ra + " << {:d}) & 0x{:08X}".format(shift,a)
 
 def shlhi(opcode):
 	shift  = (opcode >> 14) & 0x1F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a      = (MASK_ALLSET_16 << shift) & MASK_ALLSET_16
-	return "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X}".format(rt,ra,shift,a)
+	return rt + "[8x16b] = (" + ra + " << {:d}) & 0x{:04X}".format(shift,a)
 
 #####################
 # Imm rotate start: #
@@ -490,18 +436,18 @@ def shlhi(opcode):
 # Right arithm shift 4x32 by bit
 def rotmai(opcode):
 	shift  = (0 -(opcode >> 14)) & 0x3F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	#fixme: arithm
-	return "r{:d}[4x32b] = (r{:d} >> {:d})".format(rt,ra,shift)
+	return rt + "[4x32b] = (" + ra + " >> {:d})".format(shift)
 
 # Right arithm shift 8x16 by bit
 def rotmahi(opcode):
 	shift  = (0 -(opcode >> 14)) & 0x1F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	#fixme: arithm
-	return "r{:d}[8x16b] = (r{:d} >> {:d})".format(rt,ra,shift)
+	return rt + "[8x16b] = (" + ra + " >> {:d})".format(shift)
 
 # Right shift 128 by bit
 def rotqmbii(opcode):
@@ -509,13 +455,13 @@ def rotqmbii(opcode):
 	const  = MASK_ALLSET_128
 	result = const >> shift
 	result &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a = (result >> 96) & MASK_ALLSET_32
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	return "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
+	return rt + "[128b] = (" + ra + " >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
 
 # Right shift 128 by byte
 def rotqmbyi(opcode):
@@ -523,29 +469,29 @@ def rotqmbyi(opcode):
 	shift *= 8
 	result = MASK_ALLSET_128 >> shift
 	result &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a = (result >> 96) & MASK_ALLSET_32
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	return "r{:d}[128b] = (r{:d} >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,shift,a,b,c,d)
+	return rt + "[128b] = (" + ra + " >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
 
 # Right shift 4x32 by bit
 def rotmi(opcode):
 	shift  = (0 -(opcode >> 14)) & 0x3F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a      = MASK_ALLSET_32 >> shift
-	return "r{:d}[4x32b] = (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,a)
+	return rt + "[4x32b] = (" + ra + " >> {:d}) & 0x{:08X}".format(shift,a)
 
 # Right shift 8x16 by bit
 def rothmi(opcode):
 	shift  = (0 -(opcode >> 14)) & 0x1F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a      = MASK_ALLSET_16 >> shift
-	return "r{:d}[8x16b] = (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,a)
+	return rt + "[8x16b] = (" + ra + " >> {:d}) & 0x{:04X}".format(shift,a)
 
 # Left rotate 128 by bit
 def rotqbii(opcode):
@@ -555,10 +501,10 @@ def rotqbii(opcode):
 	result2 = const >> (128-shift)
 	result1 &= MASK_ALLSET_128
 	result2 &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	# fixme: maybe split in 4 rows? Ugly
-	return "r{:d}[128b] = (r{:d} << {:d}) & 0x{:032X} | (r{:d} >> {:d}) & 0x{:032X}".format(rt,ra,shift,result1,ra,(128-shift),result2)
+	return rt + "[128b] = (" + ra + " << {:d}) & 0x{:032X} | (".format(shift,result1) + ra + " >> {:d}) & 0x{:032X}".format((128-shift),result2)
 
 # Left rotate 128 by byte
 def rotqbyi(opcode):
@@ -567,13 +513,13 @@ def rotqbyi(opcode):
 	const  = 0xAAAAAAAABBBBBBBBCCCCCCCCDDDDDDDD
 	result = const << shift | const >>( 128-shift)
 	result &= MASK_ALLSET_128
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	a = (result >> 96) & MASK_ALLSET_32
 	b = (result >> 64) & MASK_ALLSET_32
 	c = (result >> 32) & MASK_ALLSET_32
 	d = result & MASK_ALLSET_32
-	return "r{:d}[128b] = r{:d} : {:08X}:{:08X}:{:08X}:{:08X}".format(rt,ra,a,b,c,d)
+	return rt + "[128b] = " + ra + " : {:08X}:{:08X}:{:08X}:{:08X}".format(a,b,c,d)
 
 # Left rotate 4x32 by bit
 def roti(opcode):
@@ -583,9 +529,9 @@ def roti(opcode):
 	result2 = MASK_ALLSET_32 >> (32-shift)
 	result1 &= MASK_ALLSET_32
 	result2 &= MASK_ALLSET_32
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[4x32b] = (r{:d} << {:d}) & 0x{:08X} | (r{:d} >> {:d}) & 0x{:08X}".format(rt,ra,shift,result1,ra,(32-shift),result2)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = (" + ra + " << {:d}) & 0x{:08X} | (".format(shift,result1) + ra + " >> {:d}) & 0x{:08X}".format((32-shift),result2)
 
 # Left rotate 8x16 by bit
 def rothi(opcode):
@@ -594,12 +540,12 @@ def rothi(opcode):
 	result2 = MASK_ALLSET_16 >> (16-shift)
 	result1 &= MASK_ALLSET_16
 	result2 &= MASK_ALLSET_16
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	# we can have special case here:
 	if shift == 8:
-		return "r{:d}[8x16b] = byteswap16(r{:d})".format(rt,ra)
-	return "r{:d}[8x16b] = (r{:d} << {:d}) & 0x{:04X} | (r{:d} >> {:d}) & 0x{:04X}".format(rt,ra,shift,result1,ra,(16-shift),result2)
+		return rt + "[8x16b] = byteswap16(" + ra + ")"
+	return rt + "[8x16b] = (" + ra + " << {:d}) & 0x{:04X} | (".format(shift,result1) + ra + " >> {:d}) & 0x{:04X}".format((16-shift),result2)
 
 #########################
 # Non imm rotate start: #
@@ -607,86 +553,86 @@ def rothi(opcode):
 
 # Right arithm shift 4x32 by bit from rb
 def rotma(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	#fixme: arithm
-	return "r{:d}[4x32b] = r{:d} >> -(r{:d}) & 0x3F".format(rt,ra,rb)
+	return rt + "[4x32b] = " + ra + " >> -(" + rb + ") & 0x3F"
 
 # Right arithm shift 8x16 by bit from rb
 def rotmah(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
 	#fixme: arithm
-	return "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
+	return rt + "[8x16b] = " + ra + " >> -(" + rb + ") & 0x1F"
 
 # Right shift 128 by bit from rb
 def rotqmbi(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[128b] = r{:d} >> -(r{:d}) & 7".format(rt,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " >> -(" + rb + ") & 7"
 
 # Right shift 128 by byte from rb
 # fixme rotqmby
 def rotqmbybi(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[128b] = r{:d} >> ( -(r{:d}) & 0x1F) * 8".format(rt,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " >> ( -(" + rb + ") & 0x1F) * 8"
 
 # Right shift 128 by byte from rb
 # fixme rotqmbybi
 def rotqmby(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[128b] = r{:d} >> ( -(r{:d}) & 0x1F) * 8".format(rt,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " >> ( -(" + rb + ") & 0x1F) * 8"
 
 # Right logical shift 4x32 by bit from rb
 def rotm(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[4x32b] = r{:d} >> -(r{:d}) & 0x3F".format(rt,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = " + ra + " >> -(" + rb + ") & 0x3F"
 
 # Right logical shift 8x16 by bit from rb
 def rothm(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[8x16b] = r{:d} >> -(r{:d}) & 0x1F".format(rt,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[8x16b] = " + ra + " >> -(" + rb + ") & 0x1F"
 
 # Left rotate 128 by bit from rb
 def rotqbi(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[128b] = r{:d} << (r{:d} & 7) | r{:d} >> 128 - (r{:d} & 7)".format(rt,ra,rb,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " << (" + rb + " & 7) | " + ra + " >> 128 - (" + rb + " & 7)"
 
 #rotqbybi
 
 # Left rotate 128 by byte from rb
 def rotqby(opcode):
-	rb  = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[128b] = r{:d} << (r{:d} & 0xF) * 8 | r{:d} >> 128 - ((r{:d} & 0xF) * 8)".format(rt,ra,rb,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[128b] = " + ra + " << (" + rb + " & 0xF) * 8 | " + ra + " >> 128 - ((" + rb + " & 0xF) * 8)"
 
 # Left rotate 4x32 by bit from rb
 def rot(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[4x32b] = r{:d} << (r{:d} & 0x1F) | r{:d} >> 32 - (r{:d} & 0x1F)".format(rt,ra,rb,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[4x32b] = " + ra + " << (" + rb + " & 0x1F) | " + ra + " >> 32 - (" + rb + " & 0x1F)"
 
 # Left rotate 8x16 by bit from rb
 def roth(opcode):
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	return "r{:d}[8x16b] = r{:d} << (r{:d} & 0xF) | r{:d} >> 16 - (r{:d} & 0xF)".format(rt,ra,rb,ra,rb)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[8x16b] = " + ra + " << (" + rb + " & 0xF) | " + ra + " >> 16 - (" + rb + " & 0xF)"
 
 ###################
 # Branches start: #
@@ -698,68 +644,51 @@ def roth(opcode):
 
 # Branch indirect (always)
 def bi(opcode):
-	ra     = (opcode >> 7) & 0x7F
-	ra     = get_preferred_reg(ra)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
 	return "PC = " + ra + " & 0x3FFFC"
 
 # Branch indirect and link if external data
 def bisled(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if ext_data: PC = " + ra + "& 0x3FFFC, ", + rt + " = 0x{:05X}".format(addr + 4)
 
 # Branch indirect and set link (always)
 def bisl(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "PC = " + ra + " & 0x3FFFC, " + rt + " = 0x{:05X}".format(addr + 4)
 
 # Branch indirect if zero
 def biz(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if " + rt + " == 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
 # Branch indirect if not zero
 def binz(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if " + rt + " != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
 # Branch indirect if zero halfword
 def bihz(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if (" + rt + "[32b] & 0xFFFF) == 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
 # Branch indirect if not zero halfword
 def bihnz(addr, opcode):
-	ra     = (opcode >> 7) & 0x7F
-	rt     = opcode & 0x7F
-	ra     = get_preferred_reg(ra)
-	rt     = get_preferred_reg(rt)
+	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
+	rt     = get_preferred_reg(opcode & 0x7F)
 	return "if (" + rt + "[32b] & 0xFFFF) != 0: PC = " + ra + " & 0x3FFFC, else: PC = 0x{:05X}".format(addr + 4)
 
 def shufb(opcode):
 
-	rt     = (opcode >> 21) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rc     = opcode & 0x7F
-	rt     = get_reg(rt)
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rc     = get_reg(rc)
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
 	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
 	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
 
@@ -770,166 +699,189 @@ def shufb(opcode):
 
 def selb(opcode):
 
-	rt     = (opcode >> 21) & 0x7F
-	rb     = (opcode >> 14) & 0x7F
-	ra     = (opcode >> 7) & 0x7F
-	rc     = opcode & 0x7F
-	rt     = get_reg(rt)
-	rb     = get_reg(rb)
-	ra     = get_reg(ra)
-	rc     = get_reg(rc)
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
 	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
 
+def ceqb(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[16x8b] if " + ra + " == " + rb + ": " + rt + " = 0xFF, else 0x00"
+
+def ceqh(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[8x16b] if " + ra + " == " + rb + ": " + rt + " = 0xFFFF, else 0x0000"
+
+def ceq(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[4x32b] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def cgtb(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[16x8b][signed] if " + ra + " > " + rb + ": " + rt + " = 0xFF, else 0x00"
+
+def cgth(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[8x16b][signed] if " + ra + " > " + rb + ": " + rt + " = 0xFFFF, else 0x0000"
+
+def cgt(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[4x32b][signed] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def clgtb(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[16x8b][unsigned] if " + ra + " > " + rb + ": " + rt + " = 0xFF, else 0x00"
+
+def clgth(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[8x16b][unsigned] if " + ra + " > " + rb + ": " + rt + " = 0xFFFF, else 0x0000"
+
+def clgt(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[4x32b][unsigned] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def wrch(opcode):
+
+	ca     = get_channel((opcode >> 7) & 0x7F)
+	cc     = (opcode >> 7) & 0x7F
+	rt     = get_preferred_reg(opcode & 0x7F)
+	return ca + "[32b](ch{:d}) = ".format(cc) + rt
+
+# fixme: 96 bits zeroed
+def rdch(opcode):
+
+	ca     = get_channel((opcode >> 7) & 0x7F)
+	cc     = (opcode >> 7) & 0x7F
+	rt     = get_preferred_reg(opcode & 0x7F)
+	return rt + " = " + ca + "[32b](ch{:d})".format(cc)
+
+def rchcnt(opcode):
+
+	ca     = get_channel((opcode >> 7) & 0x7F)
+	cc     = (opcode >> 7) & 0x7F
+	rt     = get_preferred_reg(opcode & 0x7F)
+	return rt + " = chnnel count of " + ca + " (ch{:d})".format(cc)
 
 # Todo:
 # imm:
 # mpyi, mpyui
 # non imm:
-# shifts, compares, rotqbybi, add which field is responsible for for shoft/rot count!
+# compares, rotqbybi, add which field is responsible for for shift/rot count!
 # else: simplify x by 0
 
 def SPUAsm2C(addr):
 
 	opcode = get_wide_dword(addr)
 	opcode_name = print_insn_mnem(addr)
-	if opcode_name == "fsmbi":
-		return fsmbi(opcode)
-	elif opcode_name == "avgb":
-		return avgb(opcode)
-	elif opcode_name == "absdb":
-		return absdb(opcode)
-	elif opcode_name == "andc":
-		return andc(opcode)
-	elif opcode_name == "andbi":
-		return andbi(opcode)
-	elif opcode_name == "andhi":
-		return andhi(opcode)
-	elif opcode_name == "andi":
-		return andi(opcode)
-	elif opcode_name == "orc":
-		return orc(opcode)
-	elif opcode_name == "orbi":
-		return orbi(opcode)
-	elif opcode_name == "orhi":
-		return orhi(opcode)
-	elif opcode_name == "ori":
-		return ori(opcode)
-	elif opcode_name == "orx":
-		return orx(opcode)
-	elif opcode_name == "xorbi":
-		return xorbi(opcode)
-	elif opcode_name == "xorhi":
-		return xorhi(opcode)
-	elif opcode_name == "xori":
-		return xori(opcode)
-	elif opcode_name == "eqv":
-		return eqv(opcode)
-	elif opcode_name == "ilh":
-		return ilh(opcode)
-	elif opcode_name == "ilhu":
-		return ilhu(opcode)
-	elif opcode_name == "il":
-		return il(opcode)
-	elif opcode_name == "ila":
-		return ila(opcode)
-	elif opcode_name == "iohl":
-		return iohl(opcode)
-	elif opcode_name == "ah":
-		return ah(opcode)
-	elif opcode_name == "a":
-		return a(opcode)
-	elif opcode_name == "addx":
-		return addx(opcode)
-	elif opcode_name == "sfh":
-		return sfh(opcode)
-	elif opcode_name == "sf":
-		return sf(opcode)
-	elif opcode_name == "sfx":
-		return sfx(opcode)
-	elif opcode_name == "ahi":
-		return ahi(opcode)
-	elif opcode_name == "ai":
-		return ai(opcode)
-	elif opcode_name == "sfhi":
-		return sfhi(opcode)
-	elif opcode_name == "sfi":
-		return sfi(opcode)
-	elif opcode_name == "bg":
-		return bg(opcode)
-	elif opcode_name == "shlqbyi":
-		return shlqbyi(opcode)
-	elif opcode_name == "shlqbii":
-		return shlqbii(opcode)
-	elif opcode_name == "shli":
-		return shli(opcode)
-	elif opcode_name == "shlhi":
-		return shlhi(opcode)
-	elif opcode_name == "rotmai":
-		return rotmai(opcode)
-	elif opcode_name == "rotmahi":
-		return rotmahi(opcode)
-	elif opcode_name == "rotqmbii":
-		return rotqmbii(opcode)
-	elif opcode_name == "rotqmbyi":
-		return rotqmbyi(opcode)
-	elif opcode_name == "rotmi":
-		return rotmi(opcode)
-	elif opcode_name == "rothmi":
-		return rothmi(opcode)
-	elif opcode_name == "rotqbii":
-		return rotqbii(opcode)
-	elif opcode_name == "rotqbyi":
-		return rotqbyi(opcode)
-	elif opcode_name == "roti":
-		return roti(opcode)
-	elif opcode_name == "rothi":
-		return rothi(opcode)
-	elif opcode_name == "rotma":
-		return rotma(opcode)
-	elif opcode_name == "rotmah":
-		return rotmah(opcode)
-	elif opcode_name == "rotqmbi":
-		return rotqmbi(opcode)
-	elif opcode_name == "rotqmbybi":
-		return rotqmbybi(opcode)
-	elif opcode_name == "rotqmby":
-		return rotqmby(opcode)
-	elif opcode_name == "rotm":
-		return rotm(opcode)
-	elif opcode_name == "rothm":
-		return rothm(opcode)
-	elif opcode_name == "rotqbi":
-		return rotqbi(opcode)
-	elif opcode_name == "rotqby":
-		return rotqby(opcode)
-	elif opcode_name == "rot":
-		return rot(opcode)
-	elif opcode_name == "roth":
-		return roth(opcode)
-	elif opcode_name == "bi":
-		return bi(opcode)
-	elif opcode_name == "bisled":
-		return bisled(addr, opcode)
-	elif opcode_name == "bisl":
-		return bisl(addr, opcode)
-	elif opcode_name == "biz":
-		return biz(addr, opcode)
-	elif opcode_name == "binz":
-		return binz(addr, opcode)
-	elif opcode_name == "bihz":
-		return bihz(addr, opcode)
-	elif opcode_name == "bihnz":
-		return bihnz(addr, opcode)
-	elif opcode_name == "xsbh":
-		return xsbh(opcode)
-	elif opcode_name == "xshw":
-		return xshw(opcode)
-	elif opcode_name == "xswd":
-		return xswd(opcode)
-	elif opcode_name == "shufb":
-		return shufb(opcode)
-	elif opcode_name == "selb":
-		return selb(opcode)
+	if   opcode_name == "fsmbi": return fsmbi(opcode)
+	elif opcode_name == "avgb": return avgb(opcode)
+	elif opcode_name == "absdb": return absdb(opcode)
+	elif opcode_name == "andc": return andc(opcode)
+	elif opcode_name == "andbi": return andbi(opcode)
+	elif opcode_name == "andhi": return andhi(opcode)
+	elif opcode_name == "andi": return andi(opcode)
+	elif opcode_name == "orc": return orc(opcode)
+	elif opcode_name == "orbi": return orbi(opcode)
+	elif opcode_name == "orhi": return orhi(opcode)
+	elif opcode_name == "ori": return ori(opcode)
+	elif opcode_name == "orx": return orx(opcode)
+	elif opcode_name == "xorbi": return xorbi(opcode)
+	elif opcode_name == "xorhi": return xorhi(opcode)
+	elif opcode_name == "xori": return xori(opcode)
+	elif opcode_name == "eqv": return eqv(opcode)
+	elif opcode_name == "ilh": return ilh(opcode)
+	elif opcode_name == "ilhu": return ilhu(opcode)
+	elif opcode_name == "il": return il(opcode)
+	elif opcode_name == "ila": return ila(opcode)
+	elif opcode_name == "iohl": return iohl(opcode)
+	elif opcode_name == "ah": return ah(opcode)
+	elif opcode_name == "a": return a(opcode)
+	elif opcode_name == "addx": return addx(opcode)
+	elif opcode_name == "sfh": return sfh(opcode)
+	elif opcode_name == "sf": return sf(opcode)
+	elif opcode_name == "sfx": return sfx(opcode)
+	elif opcode_name == "ahi": return ahi(opcode)
+	elif opcode_name == "ai": return ai(opcode)
+	elif opcode_name == "sfhi": return sfhi(opcode)
+	elif opcode_name == "sfi": return sfi(opcode)
+	elif opcode_name == "bg": return bg(opcode)
+	elif opcode_name == "shlqbyi": return shlqbyi(opcode)
+	elif opcode_name == "shlqbii": return shlqbii(opcode)
+	elif opcode_name == "shli": return shli(opcode)
+	elif opcode_name == "shlhi": return shlhi(opcode)
+	elif opcode_name == "rotmai": return rotmai(opcode)
+	elif opcode_name == "rotmahi": return rotmahi(opcode)
+	elif opcode_name == "rotqmbii": return rotqmbii(opcode)
+	elif opcode_name == "rotqmbyi": return rotqmbyi(opcode)
+	elif opcode_name == "rotmi": return rotmi(opcode)
+	elif opcode_name == "rothmi": return rothmi(opcode)
+	elif opcode_name == "rotqbii": return rotqbii(opcode)
+	elif opcode_name == "rotqbyi": return rotqbyi(opcode)
+	elif opcode_name == "roti": return roti(opcode)
+	elif opcode_name == "rothi": return rothi(opcode)
+	elif opcode_name == "rotma": return rotma(opcode)
+	elif opcode_name == "rotmah": return rotmah(opcode)
+	elif opcode_name == "rotqmbi": return rotqmbi(opcode)
+	elif opcode_name == "rotqmbybi": return rotqmbybi(opcode)
+	elif opcode_name == "rotqmby": return rotqmby(opcode)
+	elif opcode_name == "rotm": return rotm(opcode)
+	elif opcode_name == "rothm": return rothm(opcode)
+	elif opcode_name == "rotqbi": return rotqbi(opcode)
+	elif opcode_name == "rotqby": return rotqby(opcode)
+	elif opcode_name == "rot": return rot(opcode)
+	elif opcode_name == "roth": return roth(opcode)
+	elif opcode_name == "bi": return bi(opcode)
+	elif opcode_name == "bisled": return bisled(addr, opcode)
+	elif opcode_name == "bisl": return bisl(addr, opcode)
+	elif opcode_name == "biz": return biz(addr, opcode)
+	elif opcode_name == "binz": return binz(addr, opcode)
+	elif opcode_name == "bihz": return bihz(addr, opcode)
+	elif opcode_name == "bihnz": return bihnz(addr, opcode)
+	elif opcode_name == "xsbh": return xsbh(opcode)
+	elif opcode_name == "xshw": return xshw(opcode)
+	elif opcode_name == "xswd": return xswd(opcode)
+	elif opcode_name == "shufb": return shufb(opcode)
+	elif opcode_name == "selb": return selb(opcode)
+	elif opcode_name == "wrch": return wrch(opcode)
+	elif opcode_name == "rdch": return rdch(opcode)
+	elif opcode_name == "rchcnt": return rchcnt(opcode)
+	elif opcode_name == "ceqb": return ceqb(opcode)
+	elif opcode_name == "ceqh": return ceqh(opcode)
+	elif opcode_name == "ceq": return ceq(opcode)
+	elif opcode_name == "cgtb": return cgtb(opcode)
+	elif opcode_name == "cgth": return cgth(opcode)
+	elif opcode_name == "cgt": return cgt(opcode)
+	elif opcode_name == "clgtb": return clgtb(opcode)
+	elif opcode_name == "clgth": return clgth(opcode)
+	elif opcode_name == "clgt": return clgt(opcode)
 
 	return 0
 
