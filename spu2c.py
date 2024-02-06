@@ -1,11 +1,18 @@
 # SPU To C
 
+FLT_CONVERSION_SUPPORT = 1
 from ida_bytes import *
 from idaapi import *
 from idc import *
 import idaapi
 import ida_bytes
 import idc
+
+try:
+	import numpy
+except ImportError:
+	FLT_CONVERSION_SUPPORT = 0
+	warning("WARNING:\nspu2c: numpy not found!\nFloat conversion opcodes unsupported!")
 
 #Constants
 MASK_ALLSET_128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -966,9 +973,86 @@ def selb(opcode):
 	rc     = get_reg(opcode & 0x7F)
 	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
 
+def fa(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = " + ra + " + " + rb
+
+def fs(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = " + ra + " - " + rb
+
+def fm(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = " + ra + " * " + rb
+
+def fma(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = (" + ra + " * " + rb + ") + " + rc
+
+def fnms(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = " + rc + " - (" + ra + " * " + rb + ")"
+
+def fms(opcode):
+
+	rt     = get_reg((opcode >> 21) & 0x7F)
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rc     = get_reg(opcode & 0x7F)
+	return rt +"[4xfloat] = (" + ra + " * " + rb + ") - " + rc
+
+def csflt(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = numpy.exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(s32)" + ra + " / {:.1f}".format(scale)
+
+def cuflt(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = numpy.exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(u32)" + ra + " / {:.1f}".format(scale)
+
+def cflts(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = numpy.exp2(173 - scale)
+	return rt +"[4x32b] = (s32)((float)" + ra + " * {:.1f})".format(scale)
+
+def cfltu(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = numpy.exp2(173 - scale)
+	return rt +"[4x32b] = (u32)((float)" + ra + " * {:.1f})".format(scale)
+
 
 # Todo:
-# non imm shifts
+# non imm shifts, Floating Reciprocal Estimate, frsqest, fi, 
 # else: simplify x by 0
 
 def SPUAsm2C(addr):
@@ -1076,6 +1160,18 @@ def SPUAsm2C(addr):
 	elif opcode_name == "clgtbi": return clgtbi(opcode)
 	elif opcode_name == "clgthi": return clgthi(opcode)
 	elif opcode_name == "clgti": return clgti(opcode)
+	# fpu
+	elif opcode_name == "fa": return fa(opcode)
+	elif opcode_name == "fs": return fs(opcode)
+	elif opcode_name == "fm": return fm(opcode)
+	elif opcode_name == "fma": return fma(opcode)
+	elif opcode_name == "fnms": return fnms(opcode)
+	elif opcode_name == "fms": return fms(opcode)
+	# need numpy
+	elif opcode_name == "csflt" and FLT_CONVERSION_SUPPORT == 1: return csflt(opcode)
+	elif opcode_name == "cuflt" and FLT_CONVERSION_SUPPORT == 1: return cuflt(opcode)
+	elif opcode_name == "cflts" and FLT_CONVERSION_SUPPORT == 1: return cflts(opcode)
+	elif opcode_name == "cfltu" and FLT_CONVERSION_SUPPORT == 1: return cfltu(opcode)
 
 	return 0
 
