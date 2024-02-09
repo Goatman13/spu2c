@@ -155,6 +155,10 @@ def shufb_patterns(addr, opcode):
 					base  = base & ~(MASK_ALLSET_64 << shift)
 					msk   = 0x0001020304050607 << shift
 				msk  |= base
+				ctrl_reg = get_preferred_reg((test_op >> 7) & 0x7F)
+				if 	ctrl_reg != "sp[0]":
+					print("shufb: WARNING! Generate Controls instruction don't use sp register as a base!")
+					print("shufb: Mask can be inaccurate if " + ctrl_reg + " 32 bit value & 0x0F at 0x{:X} is not 0!".format(addr))
 			else:
 				print("shufb: Can't resolve mask, unsupported opcode")
 				return 0
