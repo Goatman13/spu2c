@@ -103,6 +103,94 @@ def imm16_to_signed_string(value):
 		sign = "-"
 	return sign + "0x{:X}".format(imm)
 
+def shufb_patterns(addr, opcode):
+	
+	msk_reg = opcode & 0x7F
+	rt = get_reg((opcode >> 21) & 0x7F)
+	rb = get_reg((opcode >> 14) & 0x7F)
+	ra = get_reg((opcode >> 7) & 0x7F)
+	limit = addr - 0x280
+	msk = 0
+	while addr > limit:
+		if get_first_fcref_to(addr) != BADADDR:
+			# branch target, we need to abandon searching.
+			# Result can be inaccurate.
+			print("shufb: Aborting due to CREF AT 0x{:X}".format(addr))
+			return 0
+		test_op = get_wide_dword(addr)
+		if (test_op >> 31) & 1 == 1:
+			# RRRR
+			target_reg = (test_op >> 21) & 0x7F
+		else:
+			target_reg = test_op & 0x7F
+		
+		if target_reg == msk_reg:
+			print("shufb: Using opcode from 0x{:X} as a mask loader".format(addr))
+			name = print_insn_mnem(addr)
+			if name == "ila":
+				msk = (test_op >> 7) & 0x3FFFF
+				print("shufb: Pre shift mask from ila opcode = 0x{:08X}".format(msk))
+				msk = (msk | msk << 32 | msk << 64 | msk << 96)
+			elif name in ["lqa", "lqr"]:
+				msk_addr = get_operand_value(addr, 1);
+				msk = get_wide_dword(msk_addr) << 96 | get_wide_dword(msk_addr+4) << 64 | get_wide_dword(msk_addr+8) << 32 | get_wide_dword(msk_addr+12)
+				print("shufb: Using mask from lq opcode at 0x{:X}".format(msk_addr))
+			elif name in ["cbd", "chd", "cwd", "cdd"]:
+				print("shufb: Generating mask from Generate Controls instruction")
+				base   = 0x101112131415161718191A1B1C1D1E1F
+				if name == "cbd":
+					shift = ((15 - (get_operand_value(addr, 1) & 0x0F)) * 8)
+					base  = base & ~(0xFF << shift)
+					msk   = 0x03 << shift
+				elif name == "chd":
+					shift = ((14 - (get_operand_value(addr, 1) & 0x0E)) * 8)
+					base  = base & ~(MASK_ALLSET_16 << shift)
+					msk   = 0x0203 << shift
+				elif name == "cwd":
+					shift = ((12 - (get_operand_value(addr, 1) & 0x0C)) * 8)
+					base  = base & ~(MASK_ALLSET_32 << shift)
+					msk   = 0x00010203 << shift
+				else:
+					shift = ((8 - (get_operand_value(addr, 1) & 0x08)) * 8)
+					base  = base & ~(MASK_ALLSET_64 << shift)
+					msk   = 0x0001020304050607 << shift
+				msk  |= base
+			else:
+				print("shufb: Can't resolve mask, unsupported opcode")
+				return 0
+			break
+		addr -= 4
+	print("shufb: Mask = 0x{:032X}".format(msk))
+	field  = 0
+	result = 0
+	space = " "
+	while field <= 15:
+		if field > 9:
+			space = ""
+		x = (msk >> (15 - field) * 8) & 0xFF
+		#print("X = 0x{:02X}".format(x))
+		if x < 0x80:
+			if x & 0x10 == 0x00:
+				print(rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + ra)
+				result |= ((x & 0x0F | 0xA0) << ((15 - field) * 8))
+			else: 
+				print(rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + rb)
+				result |= ((x & 0x0F | 0xB0) << ((15 - field) * 8))
+		else:
+			if x < 0xC0:
+				print(rt + " byte[{:d}] ".format(field,) + space + "= 0x00")
+				result |= (0x00 << ((15 - field) * 8))
+			elif x >= 0xC0 and x < 0xE0:
+				print(rt + " byte[{:d}] ".format(field,) + space + "= 0xFF")
+				result |= (0xFF << ((15 - field) * 8))
+			else:
+				print(rt + " byte[{:d}] ".format(field,) + space + "= 0x80")
+				result |= (0x80 << ((15 - field) * 8))
+		field += 1
+	#print("MASK 0x{:032X}".format(result))
+	return 1
+		
+
 def avgb(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -129,7 +217,7 @@ def andbi(opcode):
 	imm    = (opcode >> 14) & 0xFF
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return rt +"[16x8b] = " + ra + " & 0x{:X}".format(imm)
+	return rt +"[16x8b] = " + ra + " & 0x{:02X}".format(imm)
 
 def andhi(opcode):
 
@@ -137,7 +225,7 @@ def andhi(opcode):
 	imm    = sign_extend_imm10(1, imm)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return rt +"[8x16b] = " + ra + " & 0x{:X}".format(imm)
+	return rt +"[8x16b] = " + ra + " & 0x{:04X}".format(imm)
 
 def andi(opcode):
 
@@ -145,7 +233,7 @@ def andi(opcode):
 	imm    = sign_extend_imm10(0, imm)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return rt +"[4x32b] = " + ra + " & 0x{:X}".format(imm)
+	return rt +"[4x32b] = " + ra + " & 0x{:08X}".format(imm)
 
 def orc(opcode):
 
@@ -486,11 +574,8 @@ def shlqbii(opcode):
 	result &= MASK_ALLSET_128
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	a      = (result >> 96) & MASK_ALLSET_32
-	b      = (result >> 64) & MASK_ALLSET_32
-	c      = (result >> 32) & MASK_ALLSET_32
-	d      = result & MASK_ALLSET_32
-	return rt + "[128b] = (" + ra + " << {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
+	a      = result & MASK_ALLSET_32
+	return rt + "[128b] = (" + ra + " << {:d}) & 0xFFFFFFFF:FFFFFFFF:FFFFFFFF:{:08X}".format(shift,a)
 
 def shlqbyi(opcode):
 	shift  = (opcode >> 14) & 0x1F
@@ -548,10 +633,7 @@ def rotqmbii(opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	a = (result >> 96) & MASK_ALLSET_32
-	b = (result >> 64) & MASK_ALLSET_32
-	c = (result >> 32) & MASK_ALLSET_32
-	d = result & MASK_ALLSET_32
-	return rt + "[128b] = (" + ra + " >> {:d}) & 0x{:08X}:{:08X}:{:08X}:{:08X}".format(shift,a,b,c,d)
+	return rt + "[128b] = (" + ra + " >> {:d}) & 0x{:08X}:FFFFFFFF:FFFFFFFF:FFFFFFFF".format(shift,a)
 
 # Right shift 128 by byte
 def rotqmbyi(opcode):
@@ -646,7 +728,6 @@ def rotma(opcode):
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	#fixme: arithm
 	return rt + "[4x32b] = " + ra + " >> -(" + rb + ") & 0x3F"
 
 # Right arithm shift 8x16 by bit from rb
@@ -654,7 +735,6 @@ def rotmah(opcode):
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	#fixme: arithm
 	return rt + "[8x16b] = " + ra + " >> -(" + rb + ") & 0x1F"
 
 # Right shift 128 by bit from rb
@@ -665,7 +745,6 @@ def rotqmbi(opcode):
 	return rt + "[128b] = " + ra + " >> -(" + rb + ") & 7"
 
 # Right shift 128 by byte from rb
-# fixme wtf
 def rotqmbybi(opcode):
 	rb     = get_preferred_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
@@ -782,13 +861,14 @@ def bihnz(addr, opcode):
 # Compares start: #
 ###################
 
+# Compare Equal Byte
 def ceqb(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	return "[16x8b] if " + ra + " == " + rb + ": " + rt + " = 0xFF, else 0x00"
-
+# Compare Equal Halfword
 def ceqh(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -796,6 +876,7 @@ def ceqh(opcode):
 	rt     = get_reg(opcode & 0x7F)
 	return "[8x16b] if " + ra + " == " + rb + ": " + rt + " = 0xFFFF, else 0x0000"
 
+# Compare Equal Word
 def ceq(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -803,6 +884,7 @@ def ceq(opcode):
 	rt     = get_reg(opcode & 0x7F)
 	return "[4x32b] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
+# Compare Greater Than Byte
 def cgtb(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -810,6 +892,7 @@ def cgtb(opcode):
 	rt     = get_reg(opcode & 0x7F)
 	return "[16x8b][signed] if " + ra + " > " + rb + ": " + rt + " = 0xFF, else 0x00"
 
+# Compare Greater Than Halfword
 def cgth(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -817,6 +900,7 @@ def cgth(opcode):
 	rt     = get_reg(opcode & 0x7F)
 	return "[8x16b][signed] if " + ra + " > " + rb + ": " + rt + " = 0xFFFF, else 0x0000"
 
+# Compare Greater Than Word
 def cgt(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -951,7 +1035,7 @@ def rchcnt(opcode):
 # Misc start: #
 ###############
 
-def shufb(opcode):
+def shufb(addr, opcode):
 
 	rt     = get_reg((opcode >> 21) & 0x7F)
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -959,11 +1043,11 @@ def shufb(opcode):
 	rc     = get_reg(opcode & 0x7F)
 	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
 	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
-
-	answer = ask_yn(0, cmt2)
-	if answer < 1:
-		return 1
-	return cmt
+	if shufb_patterns(addr, opcode) == 0:
+		answer = ask_yn(0, cmt2)
+		if answer < 1:
+			return 1
+		return cmt
 
 def selb(opcode):
 
@@ -1137,7 +1221,7 @@ def SPUAsm2C(addr):
 	elif opcode_name == "xsbh": return xsbh(opcode)
 	elif opcode_name == "xshw": return xshw(opcode)
 	elif opcode_name == "xswd": return xswd(opcode)
-	elif opcode_name == "shufb": return shufb(opcode)
+	elif opcode_name == "shufb": return shufb(addr, opcode)
 	elif opcode_name == "selb": return selb(opcode)
 	elif opcode_name == "wrch": return wrch(opcode)
 	elif opcode_name == "rdch": return rdch(opcode)
