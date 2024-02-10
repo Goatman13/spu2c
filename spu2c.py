@@ -112,7 +112,8 @@ def shufb_patterns(addr, opcode):
 	limit = addr - 0x280
 	msk = 0
 	while addr > limit:
-		if get_first_fcref_to(addr) != BADADDR:
+		# addr + 4 because opcode at address with cref is ok. 
+		if get_first_fcref_to(addr + 4) != BADADDR:
 			# branch target, we need to abandon searching.
 			# Result can be inaccurate.
 			print("shufb: Aborting due to CREF AT 0x{:X}".format(addr))
@@ -167,32 +168,37 @@ def shufb_patterns(addr, opcode):
 	print("shufb: Mask = 0x{:032X}".format(msk))
 	field  = 0
 	result = 0
-	space = " "
+	space  = " "
+	full_string = ".\n"
+	new_line    = "\n"
 	while field <= 15:
 		if field > 9:
 			space = ""
+		if field == 15:
+			new_line = ""
 		x = (msk >> (15 - field) * 8) & 0xFF
 		#print("X = 0x{:02X}".format(x))
 		if x < 0x80:
 			if x & 0x10 == 0x00:
-				print(rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + ra)
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + ra + new_line
 				result |= ((x & 0x0F | 0xA0) << ((15 - field) * 8))
 			else: 
-				print(rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + rb)
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + rb + new_line
 				result |= ((x & 0x0F | 0xB0) << ((15 - field) * 8))
 		else:
 			if x < 0xC0:
-				print(rt + " byte[{:d}] ".format(field,) + space + "= 0x00")
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x00" + new_line
 				result |= (0x00 << ((15 - field) * 8))
 			elif x >= 0xC0 and x < 0xE0:
-				print(rt + " byte[{:d}] ".format(field,) + space + "= 0xFF")
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0xFF" + new_line
 				result |= (0xFF << ((15 - field) * 8))
 			else:
-				print(rt + " byte[{:d}] ".format(field,) + space + "= 0x80")
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x80" + new_line
 				result |= (0x80 << ((15 - field) * 8))
 		field += 1
 	#print("MASK 0x{:032X}".format(result))
-	return 1
+	#print(full_string)
+	return full_string
 		
 
 def avgb(opcode):
@@ -1046,12 +1052,14 @@ def shufb(addr, opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rc     = get_reg(opcode & 0x7F)
 	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
-	cmt2    = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
-	if shufb_patterns(addr, opcode) == 0:
+	cmt2   = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
+	cmt3   = shufb_patterns(addr, opcode)
+	if cmt3 == 0:
 		answer = ask_yn(0, cmt2)
 		if answer < 1:
 			return 1
 		return cmt
+	return cmt3
 
 def selb(opcode):
 
