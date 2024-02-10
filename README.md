@@ -5,9 +5,12 @@ Features
 -------
 
 - Plugin create easy to understand C style comments for SPU opcodes.
-- Every comment state size of operation [128b], [8x16b], and [4x32b].
+- When easier, plugin use different way to explain operation.
+- Every comment state size of operation [128b], [8x16b], [16x8b], and [4x32b].
 - While opcode name is read from text, opcode fields are read from hex to mitigate few IDA spu plugin bugs.
 - Easy to install, just throw into IDA plugins directory, and restart IDA.
+- Plugin tries to resolve shufb mask when possible, giving exact shuffle output.
+- Currently supported shufb mask suppliers are: cbd, chd, cwd, cdd, lqa, lqr, ila. 
 
  To scan single opcode push F10.
  To scan multiple opcodes, mark them with mouse, and push F10.
@@ -32,3 +35,5 @@ Examples
     ABCD = 4x32 bit slots of source register
     rotqbyi  r79, r7, 0xD    # r79[128b] = r7 : DDDDDDAA:AAAAAABB:BBBBBBCC:CCCCCCDD
     rotqbyi  r54, r7, 8      # r54[128b] = r7 : CCCCCCCC:DDDDDDDD:AAAAAAAA:BBBBBBBB
+
+![Nowy Obraz JPEG (3)](https://github.com/Goatman13/spu2c/assets/101417270/17306a79-256b-4cca-a6ab-6d73bb28e8d7)
