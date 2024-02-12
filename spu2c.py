@@ -109,8 +109,9 @@ def shufb_patterns(addr, opcode):
 	rt = get_reg((opcode >> 21) & 0x7F)
 	rb = get_reg((opcode >> 14) & 0x7F)
 	ra = get_reg((opcode >> 7) & 0x7F)
-	limit = addr - 0x280
+	limit = addr - 0x500
 	msk = 0
+	full_string = ".\n"
 	while addr > limit:
 		# addr + 4 because opcode at address with cref is ok. 
 		if get_first_fcref_to(addr + 4) != BADADDR:
@@ -135,7 +136,7 @@ def shufb_patterns(addr, opcode):
 			elif name in ["lqa", "lqr"]:
 				msk_addr = get_operand_value(addr, 1);
 				msk = get_wide_dword(msk_addr) << 96 | get_wide_dword(msk_addr+4) << 64 | get_wide_dword(msk_addr+8) << 32 | get_wide_dword(msk_addr+12)
-				print("shufb: Using mask from lq opcode at 0x{:X}".format(msk_addr))
+				print("shufb: Using mask from lq opcode, mask at 0x{:X}".format(msk_addr))
 			elif name in ["cbd", "chd", "cwd", "cdd"]:
 				print("shufb: Generating mask from Generate Controls instruction")
 				base   = 0x101112131415161718191A1B1C1D1E1F
@@ -156,20 +157,66 @@ def shufb_patterns(addr, opcode):
 					base  = base & ~(MASK_ALLSET_64 << shift)
 					msk   = 0x0001020304050607 << shift
 				msk  |= base
-				ctrl_reg = get_preferred_reg((test_op >> 7) & 0x7F)
-				if 	ctrl_reg != "sp[0]":
-					print("shufb: WARNING! Generate Controls instruction don't use sp register as a base!")
-					print("shufb: Mask can be inaccurate if " + ctrl_reg + " 32 bit value & 0x0F at 0x{:X} is not 0!".format(addr))
+				ctrl_reg = get_reg((test_op >> 7) & 0x7F)
+				if 	ctrl_reg != "sp":
+					full_string += "shufb: WARNING! " + name + " at 0x{:X} isn't using sp register as a base!\n".format(addr)
+					full_string += "shufb: Mask can be inaccurate if " + ctrl_reg + "[32b][0] & 0x0F != 0\n"
+			elif name == "orbi":
+				tra    = (test_op >> 7) & 0x7F
+				timm   = (test_op >> 14) & 0xFF
+				timm   = (timm | timm << 8 | timm << 16 | timm << 24) & MASK_ALLSET_32
+				timm   = (timm | timm << 32 | timm << 64 | timm << 96) & MASK_ALLSET_128
+				taddr  = addr - 4
+				tlimit = taddr - 0x300
+				while taddr > tlimit:
+					# taddr + 4 because opcode at address with cref is ok. 
+					if get_first_fcref_to(taddr + 4) != BADADDR:
+						# branch target, we need to abandon searching.
+						# Result can be inaccurate.
+						print("shufb: Aborting post orbi search due to CREF AT 0x{:X}".format(taddr))
+						return 0
+					test_op = get_wide_dword(taddr)
+					if (test_op >> 31) & 1 == 1:
+						# RRRR
+						target_reg = (test_op >> 21) & 0x7F
+					else:
+						target_reg = test_op & 0x7F
+					
+					if target_reg == tra:
+						print("shufb: Orbi is using opcode from 0x{:X} as a mask loader".format(taddr))
+						name = print_insn_mnem(taddr)
+						if name == "ila":
+							msk = (test_op >> 7) & 0x3FFFF
+							print("shufb: Orbi pre shift mask from ila opcode = 0x{:08X}".format(msk))
+							msk  = (msk | msk << 32 | msk << 64 | msk << 96)
+							msk |= timm
+							break
+						#Unsafe, disabled for now
+						#elif name in ["lqa", "lqr"]:
+						#	msk_addr = get_operand_value(taddr, 1);
+						#	msk  = get_wide_dword(msk_addr) << 96 | get_wide_dword(msk_addr+4) << 64 | get_wide_dword(msk_addr+8) << 32 | get_wide_dword(msk_addr+12)
+						#	msk |= timm
+						#	print("shufb!!!!: Using mask from lq opcode at 0x{:X}".format(msk_addr))
+						#	break
+						else:
+							print("shufb: Aborting, orbi use unsupported mask base opcode")
+							return 0
+					taddr -= 4
+				if taddr == tlimit:
+					print("shufb: Aborting in orbi path, opcode with mask not found")
+					return 0					
 			else:
 				print("shufb: Can't resolve mask, unsupported opcode")
 				return 0
 			break
 		addr -= 4
+		if addr == limit:
+			print("shufb: Aborting, opcode with mask not found")
+			return 0
 	print("shufb: Mask = 0x{:032X}".format(msk))
 	field  = 0
 	result = 0
 	space  = " "
-	full_string = ".\n"
 	new_line    = "\n"
 	while field <= 15:
 		if field > 9:
@@ -1053,7 +1100,7 @@ def shufb(addr, opcode):
 	rc     = get_reg(opcode & 0x7F)
 	cmt    = ".\nfor (field = 0; field <= 15; field++)\n{\n\tx = " + rc + ".byte[field]\n\tif (x < 0x80)\n\t{\n\t    if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n\t    else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n\t}\n\telse\n\t{\n\t    if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n\t    else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n\t    else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n\t}\n}"
 	cmt2   = "Are you sure you want to place this comment?\nfor (field = 0; field <= 15; field++)\n{\n    x = " + rc + ".byte[field]\n    if (x < 0x80)\n    {\n        if      (x & 0x10) == 0x00) {" + rt + ".byte[field] = " + ra + ".byte[x & 0x0f];}\n        else if (x & 0x10) == 0x10) {" + rt + ".byte[field] = " + rb + ".byte[x & 0x0f];}\n    }\n    else\n    {\n        if      (x >= 0x80 && x < 0xC0) {" + rt + ".byte[field] = 0x00;}\n        else if (x >= 0xC0 && x < 0xE0) {" + rt + ".byte[field] = 0xFF;}\n        else if (x >= 0xE0)             {" + rt + ".byte[field] = 0x80;}\n    }\n}"
-	cmt3   = shufb_patterns(addr, opcode)
+	cmt3   = shufb_patterns(addr - 4, opcode)
 	if cmt3 == 0:
 		answer = ask_yn(0, cmt2)
 		if answer < 1:
