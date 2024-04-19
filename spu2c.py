@@ -168,20 +168,24 @@ def shufb_patterns(addr, opcode):
 		if target_reg == msk_reg:
 			print("shufb: Using opcode from 0x{:X} as a mask loader".format(addr))
 			name = print_insn_mnem(addr)
-			# Todo il, ilhu, more?
-			if name == "ila":
-				msk = (test_op >> 7) & 0x3FFFF
-				print("shufb: Pre shift mask from ila opcode = 0x{:08X}".format(msk))
-				msk = (msk | msk << 32 | msk << 64 | msk << 96)
-			if name == "ilh":
-				msk = (test_op >> 7) & 0xFFFF
-				msk = msk | msk << 16
-				print("shufb: Pre shift mask from ilh opcode = 0x{:08X}".format(msk))
+			if name in ["ila", "il", "ilh", "ilhu"]:
+				if name == "ila":
+					msk = (test_op >> 7) & 0x3FFFF
+				elif name == "il":
+					msk = (test_op >> 7) & 0xFFFF
+					msk = sign_extend_imm16(msk)
+				elif name == "ilh":
+					msk = (test_op >> 7) & 0xFFFF
+					msk = msk | msk << 16
+				else: # name == "ilhu":
+					msk = (test_op >> 7) & 0xFFFF
+					msk = msk << 16
+				print("shufb: Pre shift mask from " + name + " opcode = 0x{:08X}".format(msk))
 				msk = (msk | msk << 32 | msk << 64 | msk << 96)
 			elif name in ["lqa", "lqr"]:
 				msk_addr = get_operand_value(addr, 1);
 				msk = get_wide_dword(msk_addr) << 96 | get_wide_dword(msk_addr+4) << 64 | get_wide_dword(msk_addr+8) << 32 | get_wide_dword(msk_addr+12)
-				print("shufb: Using mask from lq opcode, mask at 0x{:X}".format(msk_addr))
+				print("shufb: Using mask from " + name + " opcode, mask at 0x{:X}".format(msk_addr))
 			elif name in ["cbd", "chd", "cwd", "cdd"]:
 				print("shufb: Generating mask from Generate Controls instruction")
 				base   = 0x101112131415161718191A1B1C1D1E1F
@@ -205,7 +209,7 @@ def shufb_patterns(addr, opcode):
 				ctrl_reg = get_reg((test_op >> 7) & 0x7F)
 				if 	ctrl_reg != "sp":
 					full_string += "shufb: WARNING!\n" + name + " at 0x{:X} is not using sp register as a base!\n".format(addr)
-					full_string += "shufb: Mask can be inaccurate if " + ctrl_reg + "[32b][0] & 0x0F != 0\n"
+					full_string += "Mask can be inaccurate if " + ctrl_reg + "[32b][0] & 0x0F != 0\n"
 			elif name == "orbi":
 				tra    = (test_op >> 7) & 0x7F
 				timm   = (test_op >> 14) & 0xFF
