@@ -20,6 +20,8 @@ MASK_ALLSET_96  = 0xFFFFFFFFFFFFFFFFFFFFFFFF
 MASK_ALLSET_64  = 0xFFFFFFFFFFFFFFFF
 MASK_ALLSET_32  = 0xFFFFFFFF
 MASK_ALLSET_16  = 0xFFFF
+UP   = 0
+DOWN = 1
 
 def get_reg(reg):
 
@@ -103,6 +105,25 @@ def imm16_to_signed_string(value):
 		sign = "-"
 	return sign + "0x{:X}".format(imm)
 
+def check_abort_shufb(addr, end, msk_reg, direction):
+	
+	while addr != end:
+		opcode   = get_wide_dword(addr)
+		if opcode >> 31 == 1:
+			# RRRR format
+			test_reg = (opcode >> 21) & 0x7F
+		else:
+			test_reg = opcode & 0x7F
+
+		if test_reg == msk_reg:
+			return 1
+
+		if direction == DOWN:
+			addr += 4
+		else:
+			addr -= 4
+	return 0
+
 def shufb_patterns(addr, opcode):
 	
 	msk_reg = opcode & 0x7F
@@ -113,12 +134,30 @@ def shufb_patterns(addr, opcode):
 	msk = 0
 	full_string = ".\n"
 	while addr > limit:
-		# addr + 4 because opcode at address with cref is ok. 
-		if get_first_fcref_to(addr + 4) != BADADDR:
-			# branch target, we need to abandon searching.
-			# Result can be inaccurate.
-			print("shufb: Aborting due to CREF AT 0x{:X}".format(addr))
-			return 0
+		# addr + 4 because opcode at address with cref is ok.
+		xref_test = get_first_fcref_to(addr+4)
+		
+		# branch target, we need to check xrefs.
+		if xref_test != BADADDR:
+			abort = 1
+			
+			# Test xrefs.
+			# Todo 0018064 in pemu 3 elf.
+			# When we are sure that current address is unreachable by
+			# any other way than that branch, we are safe to go.
+			#
+			# Good test case for successful abort in pemu 5 00007374, etc.
+			while xref_test != BADADDR:
+				if xref_test > addr+4:
+					direction = DOWN
+				else:
+					direction = UP
+				abort = check_abort_shufb(addr+4, xref_test, msk_reg, direction)
+				if abort != 0:
+					print("shufb: Aborting due to CREF at 0x{:X}, from 0x{:X}".format(addr+4, xref_test))
+					return 0
+				xref_test = get_next_fcref_to(addr+4, xref_test)
+
 		test_op = get_wide_dword(addr)
 		if (test_op >> 31) & 1 == 1:
 			# RRRR
@@ -129,9 +168,15 @@ def shufb_patterns(addr, opcode):
 		if target_reg == msk_reg:
 			print("shufb: Using opcode from 0x{:X} as a mask loader".format(addr))
 			name = print_insn_mnem(addr)
+			# Todo il, ilhu, more?
 			if name == "ila":
 				msk = (test_op >> 7) & 0x3FFFF
 				print("shufb: Pre shift mask from ila opcode = 0x{:08X}".format(msk))
+				msk = (msk | msk << 32 | msk << 64 | msk << 96)
+			if name == "ilh":
+				msk = (test_op >> 7) & 0xFFFF
+				msk = msk | msk << 16
+				print("shufb: Pre shift mask from ilh opcode = 0x{:08X}".format(msk))
 				msk = (msk | msk << 32 | msk << 64 | msk << 96)
 			elif name in ["lqa", "lqr"]:
 				msk_addr = get_operand_value(addr, 1);
@@ -159,7 +204,7 @@ def shufb_patterns(addr, opcode):
 				msk  |= base
 				ctrl_reg = get_reg((test_op >> 7) & 0x7F)
 				if 	ctrl_reg != "sp":
-					full_string += "shufb: WARNING! " + name + " at 0x{:X} isn't using sp register as a base!\n".format(addr)
+					full_string += "shufb: WARNING!\n" + name + " at 0x{:X} is not using sp register as a base!\n".format(addr)
 					full_string += "shufb: Mask can be inaccurate if " + ctrl_reg + "[32b][0] & 0x0F != 0\n"
 			elif name == "orbi":
 				tra    = (test_op >> 7) & 0x7F
