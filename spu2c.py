@@ -110,26 +110,58 @@ def check_abort_shufb(addr, end, msk_reg, direction):
 	while addr != end:
 		opcode   = get_wide_dword(addr)
 		if opcode >> 31 == 1:
-			# RRRR format
 			test_reg = (opcode >> 21) & 0x7F
 		else:
 			test_reg = opcode & 0x7F
-
 		if test_reg == msk_reg:
 			return 1
-
 		if direction == DOWN:
 			addr += 4
 		else:
 			addr -= 4
 	return 0
 
-def shufb_patterns(addr, opcode):
-	
-	msk_reg = opcode & 0x7F
+def resolve_mask(opcode, full_string, msk):
+
+	field  = 0
+	result = 0
+	space  = " "
+	new_line    = "\n"
 	rt = get_reg((opcode >> 21) & 0x7F)
 	rb = get_reg((opcode >> 14) & 0x7F)
 	ra = get_reg((opcode >> 7) & 0x7F)
+	while field <= 15:
+		if field > 9:
+			space = ""
+		if field == 15:
+			new_line = ""
+		x = (msk >> (15 - field) * 8) & 0xFF
+		#print("X = 0x{:02X}".format(x))
+		if x < 0x80:
+			if x & 0x10 == 0x00:
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + ra + new_line
+				result |= ((x & 0x0F | 0xA0) << ((15 - field) * 8))
+			else: 
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + rb + new_line
+				result |= ((x & 0x0F | 0xB0) << ((15 - field) * 8))
+		else:
+			if x < 0xC0:
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x00" + new_line
+				result |= (0x00 << ((15 - field) * 8))
+			elif x >= 0xC0 and x < 0xE0:
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0xFF" + new_line
+				result |= (0xFF << ((15 - field) * 8))
+			else:
+				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x80" + new_line
+				result |= (0x80 << ((15 - field) * 8))
+		field += 1
+	#print("MASK 0x{:032X}".format(result))
+	#print(full_string)
+	return full_string
+
+def shufb_patterns(addr, opcode):
+	
+	msk_reg = opcode & 0x7F
 	limit = addr - 0x500
 	msk = 0
 	full_string = ".\n"
@@ -160,7 +192,6 @@ def shufb_patterns(addr, opcode):
 
 		test_op = get_wide_dword(addr)
 		if (test_op >> 31) & 1 == 1:
-			# RRRR
 			target_reg = (test_op >> 21) & 0x7F
 		else:
 			target_reg = test_op & 0x7F
@@ -263,38 +294,7 @@ def shufb_patterns(addr, opcode):
 			print("shufb: Aborting, opcode with mask not found")
 			return 0
 	print("shufb: Mask = 0x{:032X}".format(msk))
-	field  = 0
-	result = 0
-	space  = " "
-	new_line    = "\n"
-	while field <= 15:
-		if field > 9:
-			space = ""
-		if field == 15:
-			new_line = ""
-		x = (msk >> (15 - field) * 8) & 0xFF
-		#print("X = 0x{:02X}".format(x))
-		if x < 0x80:
-			if x & 0x10 == 0x00:
-				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + ra + new_line
-				result |= ((x & 0x0F | 0xA0) << ((15 - field) * 8))
-			else: 
-				full_string += rt + " byte[{:d}] ".format(field,) + space + "= byte[{:d}] from ".format(x&0xF) + rb + new_line
-				result |= ((x & 0x0F | 0xB0) << ((15 - field) * 8))
-		else:
-			if x < 0xC0:
-				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x00" + new_line
-				result |= (0x00 << ((15 - field) * 8))
-			elif x >= 0xC0 and x < 0xE0:
-				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0xFF" + new_line
-				result |= (0xFF << ((15 - field) * 8))
-			else:
-				full_string += rt + " byte[{:d}] ".format(field,) + space + "= 0x80" + new_line
-				result |= (0x80 << ((15 - field) * 8))
-		field += 1
-	#print("MASK 0x{:032X}".format(result))
-	#print(full_string)
-	return full_string
+	return resolve_mask(opcode, full_string, msk)
 		
 
 def avgb(opcode):
