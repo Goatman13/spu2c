@@ -1166,6 +1166,39 @@ def selb(opcode):
 	rc     = get_reg(opcode & 0x7F)
 	return rt + "[16x8b] = " + rc + " & " + rb + " | ~" + rc + " & " + ra + " (if bit in " + rc + " is 1 take bit from " + rb + ", else from " + ra + ")"
 
+# FPU
+def csflt(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(s32)" + ra + " / " + scale
+
+def cuflt(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(u32)" + ra + " / " + scale
+
+def cflts(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = exp2(173 - scale)
+	return rt +"[4x32b] = (s32)((float)" + ra + " * " + scale + ")"
+
+def cfltu(opcode):
+
+	scale  = (opcode >> 14) & 0xFF
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	scale  = exp2(173 - scale)
+	return rt +"[4x32b] = (u32)((float)" + ra + " * " + scale + ")"
+
 def fa(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
@@ -1211,38 +1244,152 @@ def fms(opcode):
 	rc     = get_reg(opcode & 0x7F)
 	return rt +"[4xfloat] = (" + ra + " * " + rb + ") - " + rc
 
-def csflt(opcode):
+def fceq(opcode):
 
-	scale  = (opcode >> 14) & 0xFF
+	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = exp2(155 - scale)
-	return rt +"[4xfloat] = (float)(s32)" + ra + " / " + scale
+	return "[4xfloat] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
-def cuflt(opcode):
+def fcmeq(opcode):
 
-	scale  = (opcode >> 14) & 0xFF
+	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = exp2(155 - scale)
-	return rt +"[4xfloat] = (float)(u32)" + ra + " / " + scale
+	return "[4xfloat] if abs(" + ra + ") == abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
-def cflts(opcode):
+def fcgt(opcode):
 
-	scale  = (opcode >> 14) & 0xFF
+	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = exp2(173 - scale)
-	return rt +"[4x32b] = (s32)((float)" + ra + " * " + scale + ")"
+	return "[4xfloat] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
-def cfltu(opcode):
+def fcmgt(opcode):
 
-	scale  = (opcode >> 14) & 0xFF
+	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = exp2(173 - scale)
-	return rt +"[4x32b] = (u32)((float)" + ra + " * " + scale + ")"
+	return "[4xfloat] if abs(" + ra + ") > abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
 
+def fscrwr(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	return "[128b] FPSCR = " + ra
+
+def fscrrd(opcode):
+
+	rt     = get_reg(opcode & 0x7F)
+	return "[128b] " + rt + " = FPSCR"
+
+# double
+def dfa(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = " + ra + " + " + rb
+
+def dfs(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = " + ra + " - " + rb
+
+def dfm(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = " + ra + " * " + rb
+
+def dfma(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = (" + ra + " * " + rb + ") + " + rt
+
+# correct?
+def dfnms(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = " + rt + " - (" + ra + " * " + rb + ")"
+
+def dfms(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = (" + ra + " * " + rb + ") - " + rt
+
+# correct?
+def dfnma(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return rt + "[2xdouble] = xor(" + rt + " + (" + ra + " * " + rb + "), 0x80000000:00000000)"
+
+def dfceq(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[2xdouble] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def dfcmeq(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[2xdouble] if abs(" + ra + ") == abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def dfcgt(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[2xdouble] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def dfcmgt(opcode):
+
+	rb     = get_reg((opcode >> 14) & 0x7F)
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return "[2xdouble] if abs(" + ra + ") > abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
+
+def dftsv(opcode):
+
+	imm    = (opcode >> 14) & 0x7F
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	if imm != 0:
+		full_string = ".[2xdouble]\nif " + ra + " is "
+		if imm & 0x40 == 0x40:
+			full_string += "NaN or "
+		if imm & 0x20 == 0x20:
+			full_string += "+Inf or "
+		if imm & 0x10 == 0x10:
+			full_string += "-Inf or "
+		if imm & 0x08 == 0x08:
+			full_string += "+0 or "
+		if imm & 0x04 == 0x04:
+			full_string += "-0 or "
+		if imm & 0x02 == 0x02:
+			full_string += "+Denormal or "
+		if imm & 0x01 == 0x01:
+			full_string += "-Denormal:"
+		if full_string[-2] == "r":
+			full_string = full_string[0:-4] + ":"
+		full_string += "\n  " + rt + " = 0xFFFFFFFF:FFFFFFFF"
+		full_string += "\nelse:\n  " + rt + " = 0x00000000:00000000"
+		return full_string
+	else:
+		return rt + " = 0x00000000:00000000" 
 
 # Todo:
 # non imm shifts, Floating Reciprocal Estimate, frsqest, fi, 
@@ -1354,16 +1501,40 @@ def SPUAsm2C(addr):
 	elif opcode_name == "clgthi": return clgthi(opcode)
 	elif opcode_name == "clgti": return clgti(opcode)
 	# fpu
+	elif opcode_name == "csflt": return csflt(opcode)
+	elif opcode_name == "cuflt": return cuflt(opcode)
+	elif opcode_name == "cflts": return cflts(opcode)
+	elif opcode_name == "cfltu": return cfltu(opcode)
 	elif opcode_name == "fa": return fa(opcode)
 	elif opcode_name == "fs": return fs(opcode)
 	elif opcode_name == "fm": return fm(opcode)
 	elif opcode_name == "fma": return fma(opcode)
 	elif opcode_name == "fnms": return fnms(opcode)
 	elif opcode_name == "fms": return fms(opcode)
-	elif opcode_name == "csflt": return csflt(opcode)
-	elif opcode_name == "cuflt": return cuflt(opcode)
-	elif opcode_name == "cflts": return cflts(opcode)
-	elif opcode_name == "cfltu": return cfltu(opcode)
+	#elif opcode_name == "frest": return frest(opcode)
+	#elif opcode_name == "frsqest": return frsqest(opcode)
+	#elif opcode_name == "fi": return fi(opcode)
+	#elif opcode_name == "frds": return frds(opcode)
+	#elif opcode_name == "fesd": return fesd(opcode)
+	elif opcode_name == "fceq": return fceq(opcode)
+	elif opcode_name == "fcmeq": return fceq(opcode)
+	elif opcode_name == "fcgt": return fcgt(opcode)
+	elif opcode_name == "fcmgt": return fcgt(opcode)
+	elif opcode_name == "fscrwr": return fscrwr(opcode)
+	elif opcode_name == "fscrrd": return fscrrd(opcode)
+	# fpu double
+	elif opcode_name == "dfa": return dfa(opcode)
+	elif opcode_name == "dfs": return dfs(opcode)
+	elif opcode_name == "dfm": return dfm(opcode)
+	elif opcode_name == "dfma": return dfma(opcode)
+	elif opcode_name == "dfnms": return dfnms(opcode)
+	elif opcode_name == "dfms": return dfms(opcode)
+	elif opcode_name == "dfnma": return dfnma(opcode)
+	elif opcode_name == "dfceq": return dfceq(opcode)
+	elif opcode_name == "dfcmeq": return dfceq(opcode)
+	elif opcode_name == "dfcgt": return dfcgt(opcode)
+	elif opcode_name == "dfcmgt": return dfcgt(opcode)
+	elif opcode_name == "dftsv": return dftsv(opcode)
 
 	return 0
 
