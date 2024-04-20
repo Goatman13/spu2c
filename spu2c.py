@@ -1,18 +1,11 @@
 # SPU To C
 
-FLT_CONVERSION_SUPPORT = 1
 from ida_bytes import *
 from idaapi import *
 from idc import *
 import idaapi
 import ida_bytes
 import idc
-
-try:
-	import numpy
-except ImportError:
-	FLT_CONVERSION_SUPPORT = 0
-	warning("WARNING:\nspu2c: numpy not found!\nFloat conversion opcodes unsupported!")
 
 #Constants
 MASK_ALLSET_128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -104,6 +97,14 @@ def imm16_to_signed_string(value):
 		imm += 1
 		sign = "-"
 	return sign + "0x{:X}".format(imm)
+
+def exp2(j):
+	i = 0
+	r = 1
+	while i < j:
+		r *= 2
+		i += 1
+	return "{:.1f}".format(r)
 
 def check_abort_shufb(addr, end, msk_reg, direction):
 	
@@ -1215,32 +1216,32 @@ def csflt(opcode):
 	scale  = (opcode >> 14) & 0xFF
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = numpy.exp2(155 - scale)
-	return rt +"[4xfloat] = (float)(s32)" + ra + " / {:.1f}".format(scale)
+	scale  = exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(s32)" + ra + " / " + scale
 
 def cuflt(opcode):
 
 	scale  = (opcode >> 14) & 0xFF
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = numpy.exp2(155 - scale)
-	return rt +"[4xfloat] = (float)(u32)" + ra + " / {:.1f}".format(scale)
+	scale  = exp2(155 - scale)
+	return rt +"[4xfloat] = (float)(u32)" + ra + " / " + scale
 
 def cflts(opcode):
 
 	scale  = (opcode >> 14) & 0xFF
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = numpy.exp2(173 - scale)
-	return rt +"[4x32b] = (s32)((float)" + ra + " * {:.1f})".format(scale)
+	scale  = exp2(173 - scale)
+	return rt +"[4x32b] = (s32)((float)" + ra + " * " + scale
 
 def cfltu(opcode):
 
 	scale  = (opcode >> 14) & 0xFF
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	scale  = numpy.exp2(173 - scale)
-	return rt +"[4x32b] = (u32)((float)" + ra + " * {:.1f})".format(scale)
+	scale  = exp2(173 - scale)
+	return rt +"[4x32b] = (u32)((float)" + ra + " * " + scale
 
 
 # Todo:
@@ -1359,11 +1360,10 @@ def SPUAsm2C(addr):
 	elif opcode_name == "fma": return fma(opcode)
 	elif opcode_name == "fnms": return fnms(opcode)
 	elif opcode_name == "fms": return fms(opcode)
-	# need numpy
-	elif opcode_name == "csflt" and FLT_CONVERSION_SUPPORT == 1: return csflt(opcode)
-	elif opcode_name == "cuflt" and FLT_CONVERSION_SUPPORT == 1: return cuflt(opcode)
-	elif opcode_name == "cflts" and FLT_CONVERSION_SUPPORT == 1: return cflts(opcode)
-	elif opcode_name == "cfltu" and FLT_CONVERSION_SUPPORT == 1: return cfltu(opcode)
+	elif opcode_name == "csflt": return csflt(opcode)
+	elif opcode_name == "cuflt": return cuflt(opcode)
+	elif opcode_name == "cflts": return cflts(opcode)
+	elif opcode_name == "cfltu": return cfltu(opcode)
 
 	return 0
 
