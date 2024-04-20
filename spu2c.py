@@ -1233,7 +1233,7 @@ def cflts(opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	scale  = exp2(173 - scale)
-	return rt +"[4x32b] = (s32)((float)" + ra + " * " + scale
+	return rt +"[4x32b] = (s32)((float)" + ra + " * " + scale + ")"
 
 def cfltu(opcode):
 
@@ -1241,7 +1241,7 @@ def cfltu(opcode):
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
 	scale  = exp2(173 - scale)
-	return rt +"[4x32b] = (u32)((float)" + ra + " * " + scale
+	return rt +"[4x32b] = (u32)((float)" + ra + " * " + scale + ")"
 
 
 # Todo:
