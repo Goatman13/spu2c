@@ -214,7 +214,10 @@ def shufb_patterns(addr, opcode):
 					msk = msk << 16
 				print("shufb: Pre shift mask from " + name + " opcode = 0x{:08X}".format(msk))
 				msk = (msk | msk << 32 | msk << 64 | msk << 96)
-			elif name in ["lqa", "lqr"]:
+			elif name in ["lqa", "lqr", "lqd"]:
+				if is_off1(ida_bytes.get_flags(addr)) == 0 and name == "lqd":
+					print("shufb: Can't resolve mask, unresolved lqd at 0x{:X}".format(addr))
+					return 0
 				msk_addr = get_operand_value(addr, 1);
 				msk = get_wide_dword(msk_addr) << 96 | get_wide_dword(msk_addr+4) << 64 | get_wide_dword(msk_addr+8) << 32 | get_wide_dword(msk_addr+12)
 				print("shufb: Using mask from " + name + " opcode, mask at 0x{:X}".format(msk_addr))
