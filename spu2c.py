@@ -1572,7 +1572,7 @@ def PluginMainF():
 
 	# convert current function
 	p_func = get_func(get_screen_ea());
-	if(p_func == None):
+	if(type(p_func) == type(None)):
 		msg("Not in a function, so can't do SPU to C conversion for the current function!\n");
 		return;
 	start_addr = p_func.start_ea;
