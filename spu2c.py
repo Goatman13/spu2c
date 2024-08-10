@@ -1342,28 +1342,28 @@ def dfceq(opcode):
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return "[2xdouble] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+	return "[2xdouble] if " + ra + " == " + rb + ": " + rt + " = 0xFFFFFFFF:FFFFFFFF, else 0x00000000:00000000"
 
 def dfcmeq(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return "[2xdouble] if abs(" + ra + ") == abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
+	return "[2xdouble] if abs(" + ra + ") == abs(" + rb + "): " + rt + " = 0xFFFFFFFF:FFFFFFFF, else 0x00000000:00000000"
 
 def dfcgt(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return "[2xdouble] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF, else 0x00000000"
+	return "[2xdouble] if " + ra + " > " + rb + ": " + rt + " = 0xFFFFFFFF:FFFFFFFF, else 0x00000000:00000000"
 
 def dfcmgt(opcode):
 
 	rb     = get_reg((opcode >> 14) & 0x7F)
 	ra     = get_reg((opcode >> 7) & 0x7F)
 	rt     = get_reg(opcode & 0x7F)
-	return "[2xdouble] if abs(" + ra + ") > abs(" + rb + "): " + rt + " = 0xFFFFFFFF, else 0x00000000"
+	return "[2xdouble] if abs(" + ra + ") > abs(" + rb + "): " + rt + " = 0xFFFFFFFF:FFFFFFFF, else 0x00000000:00000000"
 
 def dftsv(opcode):
 
