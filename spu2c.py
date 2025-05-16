@@ -935,7 +935,7 @@ def bi(opcode):
 def bisled(addr, opcode):
 	ra     = get_preferred_reg((opcode >> 7) & 0x7F)
 	rt     = get_preferred_reg(opcode & 0x7F)
-	return "if ext_data: PC = " + ra + "& 0x3FFFC, ", + rt + " = 0x{:05X}".format(addr + 4)
+	return "if ext_data: PC = " + ra + "& 0x3FFFC, " + rt + " = 0x{:05X}".format(addr + 4)
 
 # Branch indirect and set link (always)
 def bisl(addr, opcode):
