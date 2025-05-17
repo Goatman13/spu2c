@@ -1145,6 +1145,24 @@ def rchcnt(opcode):
 # Misc start: #
 ###############
 
+def gbb(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return ".\n" + rt + "[128b] = 0\nfor(field=0; field<=15; field++)\n{\n    " + rt + ".word[0] |= (" + ra + ".byte[field] & 1)\n    " + rt + ".word[0] <<= 1\n}"
+
+def gbh(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return ".\n" + rt + "[128b] = 0\nfor(field=0; field<=7; field++)\n{\n    " + rt + ".word[0] |= (" + ra + ".half[field] & 1)\n    " + rt + ".word[0] <<= 1\n}"
+
+def gb(opcode):
+
+	ra     = get_reg((opcode >> 7) & 0x7F)
+	rt     = get_reg(opcode & 0x7F)
+	return ".\n" + rt + "[128b] = 0\nfor(field=0; field<=3; field++)\n{\n    " + rt + ".word[0] |= (" + ra + ".word[field] & 1)\n    " + rt + ".word[0] <<= 1\n}"
+
 def shufb(addr, opcode):
 
 	rt     = get_reg((opcode >> 21) & 0x7F)
@@ -1503,6 +1521,9 @@ def SPUAsm2C(addr):
 	elif opcode_name == "clgtbi": return clgtbi(opcode)
 	elif opcode_name == "clgthi": return clgthi(opcode)
 	elif opcode_name == "clgti": return clgti(opcode)
+	elif opcode_name == "gbb": return gbb(opcode)
+	elif opcode_name == "gbh": return gbh(opcode)
+	elif opcode_name == "gb": return gb(opcode)
 	# fpu
 	elif opcode_name == "csflt": return csflt(opcode)
 	elif opcode_name == "cuflt": return cuflt(opcode)
